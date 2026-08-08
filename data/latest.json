@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-08-08T04:36:53.094669+00:00",
-  "generated_at_pacific": "2026-08-07T21:36:53.116637-07:00",
+  "generated_at": "2026-08-08T05:31:01.378639+00:00",
+  "generated_at_pacific": "2026-08-07T22:31:01.400513-07:00",
   "mode": "quick",
   "snapshot_meta": {
     "snapshot_date": "2026-08-07",
@@ -25,6 +25,7 @@
       "super mario"
     ]
   },
+  "niche_clusters": [],
   "products": [],
   "new_entrants": [],
   "baseline_top": [
@@ -58,6 +59,73 @@
           "prompt": "Minimal geometric flat illustration about Class of 2039 Grow with Me First Day of School Graduation. Built from simple circles, triangles and rectangles, bauhaus-inspired, 3 flat colors, strong symmetry, lots of negative space, centered, plain white background, print-ready t-shirt graphic. no text, no words, no letters, no numbers, no typography, no watermark, no logos, no brand marks, no photorealism, no gradients, no drop shadows, no busy background detail."
         }
       ],
+      "keyword_report": {
+        "phrases": [],
+        "words": [
+          {
+            "term": "smiling",
+            "count": 1
+          },
+          {
+            "term": "face",
+            "count": 1
+          },
+          {
+            "term": "medium",
+            "count": 1
+          },
+          {
+            "term": "popfunk",
+            "count": 1
+          },
+          {
+            "term": "spongebob",
+            "count": 1
+          },
+          {
+            "term": "graduation",
+            "count": 1
+          },
+          {
+            "term": "school",
+            "count": 1
+          },
+          {
+            "term": "grow",
+            "count": 1
+          },
+          {
+            "term": "class",
+            "count": 1
+          },
+          {
+            "term": "first",
+            "count": 1
+          },
+          {
+            "term": "2039",
+            "count": 1
+          },
+          {
+            "term": "day",
+            "count": 1
+          }
+        ],
+        "sample_size": 2
+      },
+      "listing": {
+        "title": "Class Of 2039 Grow With Me First Day Of School Graduation T-Shirt",
+        "bullets": [
+          "Original class of 2039 grow with me first day of school graduation design for fans of smiling, face, medium.",
+          "Makes a great gift idea. Lightweight, classic fit, double-needle sleeve and bottom hem."
+        ],
+        "keywords_used": [
+          "smiling",
+          "face",
+          "medium",
+          "popfunk"
+        ]
+      },
       "brand": "First Day of Kindergarten 2026 School Gift Store",
       "manufacturer": "First Day of Kindergarten 2026 School Gift Store",
       "image_url": null,
@@ -68,7 +136,7 @@
       "merch_marker_hits": 2,
       "ip_flags": [],
       "licensed_markers": [],
-      "fetched_at": "2026-08-08T04:36:53.094669+00:00",
+      "fetched_at": "2026-08-08T05:31:01.378639+00:00",
       "amazon_url": "https://www.amazon.com/dp/B0DG93T58T",
       "audience": "Men",
       "category_position": 266,
@@ -107,6 +175,44 @@
           "prompt": "Minimal geometric flat illustration about Undiagnosed But Something Ain't Right Saying. Built from simple circles, triangles and rectangles, bauhaus-inspired, 3 flat colors, strong symmetry, lots of negative space, centered, plain white background, print-ready t-shirt graphic. no text, no words, no letters, no numbers, no typography, no watermark, no logos, no brand marks, no photorealism, no gradients, no drop shadows, no busy background detail."
         }
       ],
+      "keyword_report": {
+        "phrases": [],
+        "words": [
+          {
+            "term": "ain't",
+            "count": 1
+          },
+          {
+            "term": "undiagnosed",
+            "count": 1
+          },
+          {
+            "term": "something",
+            "count": 1
+          },
+          {
+            "term": "right",
+            "count": 1
+          },
+          {
+            "term": "saying",
+            "count": 1
+          },
+          {
+            "term": "but",
+            "count": 1
+          }
+        ],
+        "sample_size": 1
+      },
+      "listing": {
+        "title": "Undiagnosed But Something Ain'T Right Saying T-Shirt",
+        "bullets": [
+          "Original undiagnosed but something ain't right saying design.",
+          "Makes a great gift idea. Lightweight, classic fit, double-needle sleeve and bottom hem."
+        ],
+        "keywords_used": []
+      },
       "brand": "Funny Undiagnosed But Something Ain't Right Shirt",
       "manufacturer": "Funny Undiagnosed But Something Ain't Right Shirt",
       "image_url": null,
@@ -117,7 +223,7 @@
       "merch_marker_hits": 2,
       "ip_flags": [],
       "licensed_markers": [],
-      "fetched_at": "2026-08-08T04:36:53.094669+00:00",
+      "fetched_at": "2026-08-08T05:31:01.378639+00:00",
       "amazon_url": "https://www.amazon.com/dp/B0DPBLZ5M2",
       "audience": "Men",
       "category_position": 339,
