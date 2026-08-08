@@ -402,6 +402,20 @@ def cluster_niches(rows: list[dict[str, Any]], min_size: int = 2) -> list[dict[s
     return clusters
 
 
+def scrub_keywords(kw: dict[str, Any], watchlist: list[str]) -> dict[str, Any]:
+    """Drop any mined term that matches the IP watchlist, so a trademarked
+    word from a sibling title never gets suggested as a keyword."""
+    wl = {w.lower() for w in watchlist}
+    def keep(term: str) -> bool:
+        t = term.lower()
+        return t not in wl and not any(w in t.split() for w in wl)
+    return {
+        "phrases": [p for p in kw.get("phrases", []) if keep(p["term"])],
+        "words": [w for w in kw.get("words", []) if keep(w["term"])],
+        "sample_size": kw.get("sample_size", 0),
+    }
+
+
 def suggested_listing(niche: str, kw: dict[str, Any]) -> dict[str, Any]:
     """A paste-ready title and two bullets, built from the mined phrases.
 
@@ -810,7 +824,7 @@ def enrich_dashboard(api: keepa.Keepa, cfg: dict[str, Any], mode: str) -> None:
             niche = r.get("slogan") or ""
             key = (niche.split() or [""])[0].lower()
             siblings = [t for t in all_titles if key and key in t.lower()] or [r.get("title", "")]
-            rep = keyword_report(siblings)
+            rep = scrub_keywords(keyword_report(siblings), ip_watchlist)
             r["keyword_report"] = rep
             r["listing"] = suggested_listing(niche, rep)
     attach_keywords(top_movers)
