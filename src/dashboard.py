@@ -81,10 +81,25 @@ def build_dashboard(latest: dict) -> None:
     SITE.mkdir(parents=True, exist_ok=True)
     movers = latest.get("products", []) or []
     entrants = latest.get("new_entrants", []) or []
+    baseline_top = latest.get("baseline_top", []) or []
     meta = latest.get("snapshot_meta", {}) or {}
+
+    mover_headers = ["#", "", "Product", "Category rank", "24h", "7d", "Score", "Price", "Reviews", ""]
+    entrant_headers = ["#", "", "Product", "Category rank", "Rank score", "Price", "Reviews", ""]
 
     mover_rows = [product_row(i, p, True) for i, p in enumerate(movers, 1)]
     entrant_rows = [product_row(i, p, False) for i, p in enumerate(entrants, 1)]
+    baseline_rows = [product_row(i, p, False) for i, p in enumerate(baseline_top, 1)]
+
+    baseline_section = ""
+    if baseline_rows:
+        baseline_section = (
+            "<h2>Today's leaders (first run)</h2>"
+            '<div class="h2note">No prior snapshot exists yet, so no momentum can be measured. '
+            "These are simply the current top sellers. This section disappears once a second "
+            "collect run gives the scorer something to compare against.</div>"
+            + table(baseline_rows, entrant_headers, "")
+        )
 
     generated = latest.get("generated_at_pacific") or latest.get("generated_at") or "Not yet run"
     note = "Quick proof run" if latest.get("mode") == "quick" else "Full daily run"
@@ -94,9 +109,6 @@ def build_dashboard(latest: dict) -> None:
     baseline_line = (f"Snapshot {html.escape(str(meta.get('snapshot_date', '—')))} · "
                      f"compared against {html.escape(str(b24))} (24h) and {html.escape(str(b7))} (7d) · "
                      f"{fmt_num(meta.get('population'))} ASINs tracked")
-
-    mover_headers = ["#", "", "Product", "Category rank", "24h", "7d", "Score", "Price", "Reviews", ""]
-    entrant_headers = ["#", "", "Product", "Category rank", "Rank score", "Price", "Reviews", ""]
 
     page = f"""<!doctype html>
 <html lang="en">
@@ -129,9 +141,11 @@ dialog{{width:min(720px,92vw);background:#121922;color:var(--text);border:1px so
 <div class="cards">
   <div class="card"><b>{len(movers)}</b><span>Movers with history</span></div>
   <div class="card"><b>{len(entrants)}</b><span>New arrivals</span></div>
-  <div class="card"><b>{fmt_num(meta.get('movers_with_history'))}</b><span>Scored population</span></div>
+  <div class="card"><b>{fmt_num(meta.get('population'))}</b><span>ASINs tracked</span></div>
   <div class="card"><b>Boilerplate</b><span>Merch detection signal</span></div>
 </div>
+
+{baseline_section}
 
 <h2>Climbing</h2>
 <div class="h2note">Present in both snapshots, so the movement is real. Positive means the shirt moved up its category list.</div>
@@ -148,7 +162,7 @@ dialog{{width:min(720px,92vw);background:#121922;color:var(--text);border:1px so
 
 <script>
 const DATA = {embed_json(latest)};
-const ALL = [...(DATA.products || []), ...(DATA.new_entrants || [])];
+const ALL = [...(DATA.products || []), ...(DATA.new_entrants || []), ...(DATA.baseline_top || [])];
 const byAsin = Object.fromEntries(ALL.map(x => [x.asin, x]));
 
 function rejectedSet() {{
