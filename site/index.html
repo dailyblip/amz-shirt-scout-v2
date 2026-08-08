@@ -24,12 +24,12 @@ dialog{width:min(720px,92vw);background:#121922;color:var(--text);border:1px sol
 </head>
 <body><div class="wrap">
 <h1>Amazon Shirt Scout</h1>
-<div class="sub">Full daily run · updated Not yet run</div>
-<div class="baseline">Snapshot — · compared against none yet (24h) and none yet (7d) · — ASINs tracked</div>
+<div class="sub">Quick proof run · updated 2026-08-07T20:43:13.596197-07:00</div>
+<div class="baseline">Snapshot 2026-08-07 · compared against none yet (24h) and none yet (7d) · 500 ASINs tracked</div>
 <div class="cards">
   <div class="card"><b>0</b><span>Movers with history</span></div>
   <div class="card"><b>0</b><span>New arrivals</span></div>
-  <div class="card"><b>—</b><span>Scored population</span></div>
+  <div class="card"><b>0</b><span>Scored population</span></div>
   <div class="card"><b>Boilerplate</b><span>Merch detection signal</span></div>
 </div>
 
@@ -47,7 +47,7 @@ dialog{width:min(720px,92vw);background:#121922;color:var(--text);border:1px sol
 <dialog id="briefDialog"><div class="modal"><h2 id="briefTitle">Creative brief</h2><div id="briefContent"></div><div class="footer"><label>Variations <input id="variationCount" type="number" min="1" max="5" value="3"></label><button onclick="demoGenerate()">Generate options</button><button onclick="document.getElementById('briefDialog').close()">Close</button></div></div></dialog>
 
 <script>
-const DATA = {"generated_at": null, "mode": null, "snapshot_meta": {}, "products": [], "new_entrants": []};
+const DATA = {"generated_at": "2026-08-08T03:43:13.595969+00:00", "generated_at_pacific": "2026-08-07T20:43:13.596197-07:00", "mode": "quick", "snapshot_meta": {"snapshot_date": "2026-08-07", "baseline_24h": null, "baseline_7d": null, "population": 500, "movers_with_history": 0, "new_entrants": 0}, "products": [], "new_entrants": [], "methodology": {"discovery": "Daily Keepa Best Sellers snapshots from the exact Amazon novelty T-shirt browse nodes", "momentum": "Change in each ASIN's position within its daily category Best Sellers list", "new_entrants": "ASINs absent from the prior snapshot are listed separately and never receive an imputed momentum score", "enrichment": "Metadata is queried only for top candidates; no product-history query is required", "merch_detection": "Merch by Amazon boilerplate in the feature bullets, with a direct Amazon offer as a secondary confirm", "blended_score": "45% 24h percentile + 35% 7d percentile + 20% current-rank percentile, computed across the full category population and renormalized when a component is unavailable"}};
 const ALL = [...(DATA.products || []), ...(DATA.new_entrants || [])];
 const byAsin = Object.fromEntries(ALL.map(x => [x.asin, x]));
 
