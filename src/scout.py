@@ -47,6 +47,40 @@ MERCH_MARKERS = (
 
 CONFIDENCE_ORDER = {"Low": 0, "Medium": 1, "High": 2}
 
+LICENSED_MARKERS = (
+    "officially licensed",
+    "official licensed",
+    "official product",
+    "licensed by",
+    "under license",
+    "all rights reserved",
+    "trademarks of",
+    "trademark of",
+    "™",
+    "©",
+)
+
+
+def licensed_signals(product: dict[str, Any]) -> list[str]:
+    """Explicit licensing language anywhere in the bullets or description."""
+    blob = " ".join(str(f) for f in (product.get("features") or [])).lower()
+    blob += " " + str(product.get("description") or "").lower()
+    return [m for m in LICENSED_MARKERS if m in blob]
+
+
+DEFAULT_IP_WATCHLIST = [
+    "marvel", "spider-man", "spiderman", "disney", "pixar", "star wars", "dc comics",
+    "batman", "superman", "harry potter", "pokemon", "nintendo", "hello kitty",
+    "nfl", "nba", "mlb", "nhl", "nasa", "coca-cola", "jeep", "peanuts", "snoopy",
+    "champion", "hanes", "fruit of the loom", "nike", "adidas", "under armour",
+]
+
+
+def ip_risk_terms(*fields: str | None, watchlist: list[str]) -> list[str]:
+    """Watchlist terms appearing in any supplied field (title, brand, etc.)."""
+    text = " " + " ".join((f or "").lower() for f in fields) + " "
+    return [t for t in watchlist if re.search(rf"\b{re.escape(t.lower())}\b", text)]
+
 
 # --------------------------------------------------------------------------
 # IO helpers
@@ -237,7 +271,12 @@ def slogan_from_title(title: str) -> str:
         text,
         flags=re.IGNORECASE,
     )
-    return re.sub(r"[^\w\s'&-]", " ", text).strip(" -&")[:80] or (title or "")[:80]
+    text = re.sub(r"[^\w\s'&-]", " ", text)
+    text = re.sub(r"\s+", " ", text).strip(" -&")
+    # Drop dangling possessives and stray single letters left behind by removals.
+    text = re.sub(r"\s+'s\b", "", text)
+    text = re.sub(r"\b\d+\s*$", "", text).strip(" -&")
+    return text[:80] or (title or "")[:80]
 
 
 def title_is_blocked(title: str, blocked_terms: list[str]) -> bool:
@@ -449,24 +488,34 @@ def score_movers(movers: list[Candidate], depth: int) -> None:
 # --------------------------------------------------------------------------
 
 def fetch_metadata(
-    api: keepa.Keepa, asins: list[str], cache: dict[str, Any], refresh_days: int
+    api: keepa.Keepa, asins: list[str], cache: dict[str, Any], refresh_days: int,
+    want_reviews: bool = True, skip: set[str] | None = None
 ) -> dict[str, dict[str, Any]]:
-    stale = [a for a in asins if not cache_is_fresh(cache.get(a, {}), refresh_days)]
+    skip = skip or set()
+    stale = [a for a in asins
+             if a not in skip and not cache_is_fresh(cache.get(a, {}), refresh_days)]
+    if skip:
+        print(f"Skipping {len(skip)} ASIN(s) already known to be trademarked")
     print(f"Candidates={len(asins)}; metadata queries needed={len(stale)}")
     if not stale:
         return {}
+    # rating=True is REQUIRED for COUNT_REVIEWS to be populated. It costs an
+    # extra token per ASIN; set fetch_reviews=false in config to skip it.
     details = api.query(stale, domain="US", history=False, stats=1,
-                        rating=False, progress_bar=True)
+                        rating=want_reviews, progress_bar=True)
     return {p.get("asin"): p for p in (details or []) if p.get("asin")}
 
 
 def build_row(asin: str, product: dict[str, Any] | None, cached: dict[str, Any],
-              now_utc: datetime) -> dict[str, Any] | None:
+              now_utc: datetime, ip_watchlist: list[str]) -> dict[str, Any] | None:
     if product:
         title = product.get("title")
         if not title:
             return None
         confidence, hits = merch_confidence(product)
+        flags = ip_risk_terms(title, product.get("brand"), product.get("manufacturer"),
+                              watchlist=ip_watchlist)
+        licensed = licensed_signals(product)
         return {
             "asin": asin,
             "title": title,
@@ -479,6 +528,8 @@ def build_row(asin: str, product: dict[str, Any] | None, cached: dict[str, Any],
             "amazon_direct_offer": has_amazon_offer(product),
             "merch_confidence": confidence,
             "merch_marker_hits": hits,
+            "ip_flags": flags,
+            "licensed_markers": licensed,
             "fetched_at": now_utc.isoformat(),
         }
     # No fresh fetch: fall back to cache, but never emit a titleless row.
@@ -496,6 +547,11 @@ def enrich_dashboard(api: keepa.Keepa, cfg: dict[str, Any], mode: str) -> None:
     require_amazon = bool(cfg.get("require_amazon_offer", True))
     min_conf = CONFIDENCE_ORDER.get(cfg.get("min_merch_confidence", "Medium"), 1)
     refresh_days = int(cfg.get("metadata_refresh_days", 7))
+    ip_watchlist = cfg.get("ip_watchlist") or DEFAULT_IP_WATCHLIST
+    block_ip = bool(cfg.get("block_ip_matches", True))
+    independent_only = bool(cfg.get("independent_sellers_only", True))
+    dropped: dict[str, int] = {}
+    dropped_terms: set[str] = set()
 
     mover_pool = [c for c in movers[: int(cfg.get("enrich_candidate_pool", 50))]]
     entrant_pool = [c for c in new_entrants[: int(cfg.get("new_entrant_pool", 15))]]
@@ -506,7 +562,12 @@ def enrich_dashboard(api: keepa.Keepa, cfg: dict[str, Any], mode: str) -> None:
     print(f"Snapshot {meta['snapshot_date']}; 24h baseline {meta['baseline_24h']}; "
           f"7d baseline {meta['baseline_7d']}")
 
-    fetched = fetch_metadata(api, list(lookup), cache, refresh_days)
+    # Known-IP ASINs stay in the cache purely so we can avoid re-querying them.
+    known_ip = {a for a, r in cache.items()
+                if r.get("ip_flags") or r.get("licensed_markers")} if block_ip else set()
+    fetched = fetch_metadata(api, list(lookup), cache, refresh_days,
+                             want_reviews=bool(cfg.get("fetch_reviews", True)),
+                             skip=known_ip)
     now_utc = datetime.now(timezone.utc)
 
     def assemble(pool: list[Candidate]) -> list[dict[str, Any]]:
@@ -514,13 +575,29 @@ def enrich_dashboard(api: keepa.Keepa, cfg: dict[str, Any], mode: str) -> None:
         for c in pool:
             if c.asin in rejected:
                 continue
-            row = build_row(c.asin, fetched.get(c.asin), cache.get(c.asin, {}), now_utc)
+            if block_ip and c.asin in known_ip:
+                dropped["ip"] = dropped.get("ip", 0) + 1
+                continue
+            row = build_row(c.asin, fetched.get(c.asin), cache.get(c.asin, {}),
+                            now_utc, ip_watchlist)
             if row is None:
                 continue
             if c.asin in fetched:
                 cache[c.asin] = row
 
             if title_is_blocked(row["title"], blocked_terms):
+                continue
+            if block_ip and row.get("ip_flags"):
+                dropped["brand"] = dropped.get("brand", 0) + 1
+                dropped_terms.update(row["ip_flags"])
+                continue
+            if independent_only and row.get("licensed_markers"):
+                dropped["licensed"] = dropped.get("licensed", 0) + 1
+                continue
+            # Merch boilerplate is what proves the listing is print-on-demand
+            # rather than a bulk-manufactured blank from an apparel company.
+            if independent_only and int(row.get("merch_marker_hits") or 0) < 2:
+                dropped["not_merch"] = dropped.get("not_merch", 0) + 1
                 continue
             if not likely_tshirt(row["title"]):
                 continue
@@ -552,7 +629,9 @@ def enrich_dashboard(api: keepa.Keepa, cfg: dict[str, Any], mode: str) -> None:
         "generated_at": now_utc.isoformat(),
         "generated_at_pacific": datetime.now(PACIFIC).isoformat(),
         "mode": mode,
-        "snapshot_meta": meta,
+        "snapshot_meta": {**meta, "filtered": dropped,
+                          "ip_filtered": sum(dropped.values()),
+                          "ip_terms_hit": sorted(dropped_terms)},
         "products": top_movers,
         "new_entrants": top_new,
         "baseline_top": top_baseline,
@@ -570,6 +649,11 @@ def enrich_dashboard(api: keepa.Keepa, cfg: dict[str, Any], mode: str) -> None:
     from src.dashboard import build_dashboard
     build_dashboard(latest)
 
+    if dropped:
+        print("Filtered out — " + ", ".join(
+            f"{v} {k}" for k, v in sorted(dropped.items())))
+        if dropped_terms:
+            print(f"  brand/IP terms hit: {', '.join(sorted(dropped_terms))}")
     print(f"Enrich complete. Movers: {len(top_movers)}; new arrivals: {len(top_new)}; "
           f"baseline leaders: {len(top_baseline)}")
     print(f"Keepa tokens remaining: {api.tokens_left}")
