@@ -322,6 +322,124 @@ def design_prompts(niche: str) -> list[dict[str, str]]:
     ]
 
 
+STOPWORDS = {
+    "the","a","an","and","or","for","with","your","you","this","that","tee","tees",
+    "shirt","shirts","tshirt","tshirts","t-shirt","t-shirts","mens","men","womens",
+    "women","kids","boys","girls","youth","unisex","adult","gift","gifts","funny",
+    "vintage","retro","graphic","premium","classic","cotton","short","long","sleeve",
+    "novelty","cool","cute","best","top","of","to","in","on","by","is","it","my",
+    "size","fit","crew","neck","design","print","printed","apparel","clothing",
+}
+
+
+def _words(text: str) -> list[str]:
+    return [w for w in re.findall(r"[a-z0-9']+", (text or "").lower()) if w]
+
+
+def keyword_report(titles: list[str], max_terms: int = 12) -> dict[str, Any]:
+    """Rank phrases/words by how many DISTINCT titles use them.
+
+    Document frequency, not raw count: a bigram appearing once each in five
+    different shirts is a real search term; one appearing five times inside a
+    single repeated title is noise. Bigrams are only kept when at least two
+    different shirts share them.
+    """
+    from collections import Counter
+    uniq = list(dict.fromkeys(t for t in titles if t))
+    uni_df: Counter = Counter()
+    bi_df: Counter = Counter()
+    for t in uniq:
+        toks = _words(t)
+        ws = {w for w in toks if w not in STOPWORDS and len(w) > 2}
+        uni_df.update(ws)
+        seen_bi = set()
+        for a, b in zip(toks, toks[1:]):
+            if (a not in STOPWORDS and b not in STOPWORDS
+                    and len(a) > 2 and len(b) > 2):
+                seen_bi.add(f"{a} {b}")
+        bi_df.update(seen_bi)
+
+    n = max(len(uniq), 1)
+    phrases = [{"term": k, "count": v} for k, v in bi_df.most_common(max_terms)
+               if v >= 2]
+    words = [{"term": k, "count": v} for k, v in uni_df.most_common(max_terms)
+             if v >= 2 or n < 3]
+    return {"phrases": phrases, "words": words, "sample_size": n}
+
+
+def cluster_niches(rows: list[dict[str, Any]], min_size: int = 2) -> list[dict[str, Any]]:
+    """Group surfaced rows sharing a dominant keyword into niche clusters.
+
+    A single mover is easy to explain away as a one-off spike. Two or more
+    shirts climbing under the same theme in the same run is the signal worth
+    designing for, because it reflects demand for the topic, not one listing.
+    """
+    from collections import defaultdict
+    buckets: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for r in rows:
+        rep = r.get("keyword_report") or {}
+        phrases = [ph for ph in (rep.get("phrases") or []) if ph.get("count", 0) >= 2]
+        if not phrases:
+            continue  # no phrase shared across ≥2 shirts → not a cluster member
+        key = phrases[0]["term"]
+        buckets[key].append(r)
+
+    clusters = []
+    for key, members in buckets.items():
+        if len(members) < min_size:
+            continue
+        members = sorted(members, key=lambda m: m.get("blended_score") or 0, reverse=True)
+        clusters.append({
+            "niche": key,
+            "size": len(members),
+            "avg_score": round(sum(m.get("blended_score") or 0 for m in members) / len(members), 1),
+            "best_change_24h": max((m.get("change_24h_pct") or 0) for m in members),
+            "asins": [m["asin"] for m in members],
+            "titles": [m.get("title", "") for m in members][:6],
+        })
+    # Rank clusters by size first (breadth of the trend), then momentum.
+    clusters.sort(key=lambda c: (c["size"], c["avg_score"]), reverse=True)
+    return clusters
+
+
+def suggested_listing(niche: str, kw: dict[str, Any]) -> dict[str, Any]:
+    """A paste-ready title and two bullets, built from the mined phrases.
+
+    Every Merch listing is the seller's own text, so this is scaffolding to
+    edit, never a copy of any competitor's listing.
+    """
+    base = (niche or "Graphic").strip()
+    base_words = set(_words(base))
+    # Phrases carry more search intent than loose words; drop numeric/date noise
+    # and anything already implied by the niche name.
+    phrases = [p["term"] for p in kw.get("phrases", [])
+               if not any(c.isdigit() for c in p["term"])
+               and not set(_words(p["term"])) <= base_words][:3]
+    phrase_words = {w for ph in phrases for w in _words(ph)}
+    words = [w["term"] for w in kw.get("words", [])
+             if not w["term"].isdigit() and w["term"] not in base_words
+             and w["term"] not in phrase_words
+             and w["term"] not in {"est", "since", "club", "squad", "ever"}][:4]
+
+    title = f"{base.title()} T-Shirt"
+    tail = ", ".join(p.title() for p in phrases)
+    if tail:
+        title = f"{base.title()} T-Shirt - {tail}"
+
+    love = ", ".join(dict.fromkeys(phrases + words)[:3]) if False else \
+           ", ".join(list(dict.fromkeys(phrases + words))[:3])
+    return {
+        "title": title[:140],
+        "bullets": [
+            f"Original {base.lower()} design" +
+            (f" for fans of {love}." if love else "."),
+            "Makes a great gift idea. Lightweight, classic fit, "
+            "double-needle sleeve and bottom hem.",
+        ],
+        "keywords_used": list(dict.fromkeys(phrases + words)),
+    }
+
+
 def title_is_blocked(title: str, blocked_terms: list[str]) -> bool:
     text = f" {(title or '').lower()} "
     return any(re.search(rf"\b{re.escape(t.lower())}\b", text) for t in blocked_terms)
@@ -574,6 +692,8 @@ def build_row(asin: str, product: dict[str, Any] | None, cached: dict[str, Any],
             "title": title,
             "slogan": slogan_from_title(title),
             "design_prompts": design_prompts(slogan_from_title(title)),
+            "keyword_report": None,   # filled after all titles are known
+            "listing": None,
             "brand": product.get("brand"),
             "manufacturer": product.get("manufacturer"),
             "image_url": image_url(product),
@@ -676,6 +796,27 @@ def enrich_dashboard(api: keepa.Keepa, cfg: dict[str, Any], mode: str) -> None:
     top_new = assemble(entrant_pool)[: int(cfg.get("final_new_entrant_count", 10))]
     top_baseline = assemble(baseline_pool)[: int(cfg.get("final_new_entrant_count", 10))]
 
+    # Title pool for keyword mining: freshly fetched titles plus everything in
+    # cache. Built AFTER assembly so this run's fetches are included — otherwise
+    # a wiped cache yields no siblings and every phrase list comes back empty.
+    all_titles = [p.get("title", "") for p in fetched.values() if p.get("title")]
+    all_titles += [r.get("title", "") for r in cache.values() if r.get("title")]
+    all_titles = [t for t in dict.fromkeys(all_titles) if t]
+
+    # Keyword mining: for each surfaced row, gather sibling titles that share the
+    # niche's leading word and build a report + a paste-ready listing.
+    def attach_keywords(rows):
+        for r in rows:
+            niche = r.get("slogan") or ""
+            key = (niche.split() or [""])[0].lower()
+            siblings = [t for t in all_titles if key and key in t.lower()] or [r.get("title", "")]
+            rep = keyword_report(siblings)
+            r["keyword_report"] = rep
+            r["listing"] = suggested_listing(niche, rep)
+    attach_keywords(top_movers)
+    attach_keywords(top_new)
+    attach_keywords(top_baseline)
+
     prune_products_cache(cache, int(cfg.get("products_cache_max_age_days", 60)))
     save_json(DATA / "products.json", cache)
 
@@ -686,6 +827,7 @@ def enrich_dashboard(api: keepa.Keepa, cfg: dict[str, Any], mode: str) -> None:
         "snapshot_meta": {**meta, "filtered": dropped,
                           "ip_filtered": sum(dropped.values()),
                           "ip_terms_hit": sorted(dropped_terms)},
+        "niche_clusters": cluster_niches(top_movers),
         "products": top_movers,
         "new_entrants": top_new,
         "baseline_top": top_baseline,
