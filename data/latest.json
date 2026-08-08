@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-08-08T04:05:12.703884+00:00",
-  "generated_at_pacific": "2026-08-07T21:05:12.718638-07:00",
+  "generated_at": "2026-08-08T04:36:53.094669+00:00",
+  "generated_at_pacific": "2026-08-07T21:36:53.116637-07:00",
   "mode": "quick",
   "snapshot_meta": {
     "snapshot_date": "2026-08-07",
@@ -11,22 +11,122 @@
     "new_entrants": 0,
     "first_run": true,
     "filtered": {
-      "not_merch": 20,
-      "brand": 7
+      "not_merch": 19,
+      "brand": 7,
+      "licensed": 1
     },
     "ip_filtered": 27,
     "ip_terms_hit": [
-      "bluey",
-      "carhartt",
-      "champion",
-      "gildan",
       "marvel",
-      "spider-man"
+      "nintendo",
+      "spider-man",
+      "spiderman",
+      "spongebob",
+      "super mario"
     ]
   },
   "products": [],
   "new_entrants": [],
-  "baseline_top": [],
+  "baseline_top": [
+    {
+      "asin": "B0DG93T58T",
+      "title": "Class of 2039 Grow with Me First Day of School Graduation T-Shirt",
+      "slogan": "Class of 2039 Grow with Me First Day of School Graduation",
+      "design_prompts": [
+        {
+          "label": "Emblem / badge",
+          "prompt": "Flat vector emblem illustration about Class of 2039 Grow with Me First Day of School Graduation. Circular badge composition, bold simple shapes, thick clean outlines, symmetrical and centered, limited palette of 3 flat colors, high contrast, plain white background, print-ready t-shirt graphic. no text, no words, no letters, no numbers, no typography, no watermark, no logos, no brand marks, no photorealism, no gradients, no drop shadows, no busy background detail."
+        },
+        {
+          "label": "Single subject",
+          "prompt": "Flat vector illustration of a single centered subject representing Class of 2039 Grow with Me First Day of School Graduation. Sticker style, bold simple shapes, thick clean outlines, limited palette of 4 flat colors, no shading, plain white background, print-ready t-shirt graphic. no text, no words, no letters, no numbers, no typography, no watermark, no logos, no brand marks, no photorealism, no gradients, no drop shadows, no busy background detail."
+        },
+        {
+          "label": "Retro scene",
+          "prompt": "Retro 1970s flat vector illustration about Class of 2039 Grow with Me First Day of School Graduation. Horizontal sunset stripe arc behind a simple bold subject, muted vintage palette of burnt orange, mustard, cream and teal, clean edges, centered, plain white background, print-ready t-shirt graphic. no text, no words, no letters, no numbers, no typography, no watermark, no logos, no brand marks, no photorealism, no gradients, no drop shadows, no busy background detail."
+        },
+        {
+          "label": "Monoline line art",
+          "prompt": "Minimal monoline line-art illustration about Class of 2039 Grow with Me First Day of School Graduation. Single consistent stroke weight, one color on white, continuous clean linework, elegant and simple, centered composition, generous negative space, plain white background, print-ready t-shirt graphic. no text, no words, no letters, no numbers, no typography, no watermark, no logos, no brand marks, no photorealism, no gradients, no drop shadows, no busy background detail."
+        },
+        {
+          "label": "Cartoon mascot",
+          "prompt": "Playful flat cartoon mascot character representing Class of 2039 Grow with Me First Day of School Graduation. Friendly expressive face, chunky rounded shapes, bold outlines, bright limited palette of 5 flat colors, centered full-body character, sticker style, plain white background, print-ready t-shirt graphic. no text, no words, no letters, no numbers, no typography, no watermark, no logos, no brand marks, no photorealism, no gradients, no drop shadows, no busy background detail."
+        },
+        {
+          "label": "Geometric minimal",
+          "prompt": "Minimal geometric flat illustration about Class of 2039 Grow with Me First Day of School Graduation. Built from simple circles, triangles and rectangles, bauhaus-inspired, 3 flat colors, strong symmetry, lots of negative space, centered, plain white background, print-ready t-shirt graphic. no text, no words, no letters, no numbers, no typography, no watermark, no logos, no brand marks, no photorealism, no gradients, no drop shadows, no busy background detail."
+        }
+      ],
+      "brand": "First Day of Kindergarten 2026 School Gift Store",
+      "manufacturer": "First Day of Kindergarten 2026 School Gift Store",
+      "image_url": null,
+      "price": 15.26,
+      "reviews": 3,
+      "amazon_direct_offer": true,
+      "merch_confidence": "High",
+      "merch_marker_hits": 2,
+      "ip_flags": [],
+      "licensed_markers": [],
+      "fetched_at": "2026-08-08T04:36:53.094669+00:00",
+      "amazon_url": "https://www.amazon.com/dp/B0DG93T58T",
+      "audience": "Men",
+      "category_position": 266,
+      "change_24h_pct": null,
+      "change_7d_pct": null,
+      "is_new_entrant": false,
+      "blended_score": 10.2
+    },
+    {
+      "asin": "B0DPBLZ5M2",
+      "title": "Undiagnosed But Something Ain't Right Funny Saying T-Shirt",
+      "slogan": "Undiagnosed But Something Ain't Right Saying",
+      "design_prompts": [
+        {
+          "label": "Emblem / badge",
+          "prompt": "Flat vector emblem illustration about Undiagnosed But Something Ain't Right Saying. Circular badge composition, bold simple shapes, thick clean outlines, symmetrical and centered, limited palette of 3 flat colors, high contrast, plain white background, print-ready t-shirt graphic. no text, no words, no letters, no numbers, no typography, no watermark, no logos, no brand marks, no photorealism, no gradients, no drop shadows, no busy background detail."
+        },
+        {
+          "label": "Single subject",
+          "prompt": "Flat vector illustration of a single centered subject representing Undiagnosed But Something Ain't Right Saying. Sticker style, bold simple shapes, thick clean outlines, limited palette of 4 flat colors, no shading, plain white background, print-ready t-shirt graphic. no text, no words, no letters, no numbers, no typography, no watermark, no logos, no brand marks, no photorealism, no gradients, no drop shadows, no busy background detail."
+        },
+        {
+          "label": "Retro scene",
+          "prompt": "Retro 1970s flat vector illustration about Undiagnosed But Something Ain't Right Saying. Horizontal sunset stripe arc behind a simple bold subject, muted vintage palette of burnt orange, mustard, cream and teal, clean edges, centered, plain white background, print-ready t-shirt graphic. no text, no words, no letters, no numbers, no typography, no watermark, no logos, no brand marks, no photorealism, no gradients, no drop shadows, no busy background detail."
+        },
+        {
+          "label": "Monoline line art",
+          "prompt": "Minimal monoline line-art illustration about Undiagnosed But Something Ain't Right Saying. Single consistent stroke weight, one color on white, continuous clean linework, elegant and simple, centered composition, generous negative space, plain white background, print-ready t-shirt graphic. no text, no words, no letters, no numbers, no typography, no watermark, no logos, no brand marks, no photorealism, no gradients, no drop shadows, no busy background detail."
+        },
+        {
+          "label": "Cartoon mascot",
+          "prompt": "Playful flat cartoon mascot character representing Undiagnosed But Something Ain't Right Saying. Friendly expressive face, chunky rounded shapes, bold outlines, bright limited palette of 5 flat colors, centered full-body character, sticker style, plain white background, print-ready t-shirt graphic. no text, no words, no letters, no numbers, no typography, no watermark, no logos, no brand marks, no photorealism, no gradients, no drop shadows, no busy background detail."
+        },
+        {
+          "label": "Geometric minimal",
+          "prompt": "Minimal geometric flat illustration about Undiagnosed But Something Ain't Right Saying. Built from simple circles, triangles and rectangles, bauhaus-inspired, 3 flat colors, strong symmetry, lots of negative space, centered, plain white background, print-ready t-shirt graphic. no text, no words, no letters, no numbers, no typography, no watermark, no logos, no brand marks, no photorealism, no gradients, no drop shadows, no busy background detail."
+        }
+      ],
+      "brand": "Funny Undiagnosed But Something Ain't Right Shirt",
+      "manufacturer": "Funny Undiagnosed But Something Ain't Right Shirt",
+      "image_url": null,
+      "price": 16.99,
+      "reviews": 91,
+      "amazon_direct_offer": true,
+      "merch_confidence": "High",
+      "merch_marker_hits": 2,
+      "ip_flags": [],
+      "licensed_markers": [],
+      "fetched_at": "2026-08-08T04:36:53.094669+00:00",
+      "amazon_url": "https://www.amazon.com/dp/B0DPBLZ5M2",
+      "audience": "Men",
+      "category_position": 339,
+      "change_24h_pct": null,
+      "change_7d_pct": null,
+      "is_new_entrant": false,
+      "blended_score": 6.3
+    }
+  ],
   "methodology": {
     "discovery": "Daily Keepa Best Sellers snapshots from the exact Amazon novelty T-shirt browse nodes",
     "momentum": "Change in each ASIN's position within its daily category Best Sellers list",
