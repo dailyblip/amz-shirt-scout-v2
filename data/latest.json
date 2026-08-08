@@ -1,1 +1,23 @@
-{"generated_at": null, "mode": null, "snapshot_meta": {}, "products": [], "new_entrants": []}
+{
+  "generated_at": "2026-08-08T03:43:13.595969+00:00",
+  "generated_at_pacific": "2026-08-07T20:43:13.596197-07:00",
+  "mode": "quick",
+  "snapshot_meta": {
+    "snapshot_date": "2026-08-07",
+    "baseline_24h": null,
+    "baseline_7d": null,
+    "population": 500,
+    "movers_with_history": 0,
+    "new_entrants": 0
+  },
+  "products": [],
+  "new_entrants": [],
+  "methodology": {
+    "discovery": "Daily Keepa Best Sellers snapshots from the exact Amazon novelty T-shirt browse nodes",
+    "momentum": "Change in each ASIN's position within its daily category Best Sellers list",
+    "new_entrants": "ASINs absent from the prior snapshot are listed separately and never receive an imputed momentum score",
+    "enrichment": "Metadata is queried only for top candidates; no product-history query is required",
+    "merch_detection": "Merch by Amazon boilerplate in the feature bullets, with a direct Amazon offer as a secondary confirm",
+    "blended_score": "45% 24h percentile + 35% 7d percentile + 20% current-rank percentile, computed across the full category population and renormalized when a component is unavailable"
+  }
+}
