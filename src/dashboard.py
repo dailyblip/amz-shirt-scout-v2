@@ -130,7 +130,27 @@ h2{{font-size:15px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut
 button{{border:1px solid var(--line);background:#182332;color:var(--text);border-radius:7px;padding:7px 9px;margin-right:5px;cursor:pointer;font:inherit}} button:hover{{border-color:#4a6078}} button:focus-visible{{outline:2px solid var(--accent);outline-offset:2px}} .reject{{color:#ffaaaa}}
 .delta.pos{{color:var(--good);font-weight:700}} .delta.neg{{color:var(--bad);font-weight:700}}
 .ipflag{{color:#ff9a9a;font-weight:700;margin-left:8px;border:1px solid #5c2a2a;background:#2a1414;border-radius:4px;padding:1px 5px}}
+.settings{{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-bottom:18px}}
+.settings summary{{cursor:pointer;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.05em}}
+.setrow{{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px}}
+.setrow label{{font-size:12px;color:var(--muted)}}
+.setrow input,.setrow select{{background:#0d141c;border:1px solid var(--line);color:var(--text);padding:7px;border-radius:7px;font:inherit;margin-left:6px}}
+.setrow input#apiKey{{min-width:290px}}
+.sethint{{color:var(--muted);font-size:11px;margin-top:9px}}
+.genrow{{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}}
+.genrow input{{width:64px;background:#0d141c;border:1px solid var(--line);color:var(--text);padding:7px;border-radius:7px;margin-left:6px}}
+button.primary{{background:#1d3a5c;border-color:#2f5c8a}}
+.genstatus{{color:var(--muted);font-size:12px}}
+.genresults{{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px}}
+.gencell{{border:1px solid var(--line);border-radius:8px;padding:9px;background:#0d141c}}
+.gencell img{{width:100%;border-radius:6px;background:#fff;display:block;background-image:linear-gradient(45deg,#ddd 25%,transparent 25%),linear-gradient(-45deg,#ddd 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#ddd 75%),linear-gradient(-45deg,transparent 75%,#ddd 75%);background-size:14px 14px;background-position:0 0,0 7px,7px -7px,-7px 0}}
+.genlabel{{font-size:11px;color:var(--muted);margin-bottom:7px}}
+.genwait{{color:var(--muted);font-size:12px;padding:22px 0;text-align:center}}
+.generr{{color:var(--bad);font-size:11px;word-break:break-word}}
+.dl{{display:inline-block;margin-top:7px;font-size:12px;color:var(--accent)}}
+.promptbox textarea{{width:100%;min-height:74px;background:#0d141c;border:1px solid var(--line);color:#cad5df;border-radius:7px;padding:9px;font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;resize:vertical;margin-bottom:8px}}
 .conf{{font-weight:600}} .conf-high{{color:var(--good)}} .conf-medium{{color:var(--warn)}} .conf-low{{color:var(--muted)}}
+.hint{{color:var(--muted);font-size:12px;margin-right:auto}}
 .notice{{margin-top:14px;color:var(--muted);font-size:12px}}
 dialog{{width:min(720px,92vw);background:#121922;color:var(--text);border:1px solid var(--line);border-radius:12px;padding:0}} dialog::backdrop{{background:#000a}} .modal{{padding:20px}} .modal h2{{margin-top:0;font-size:18px;text-transform:none;letter-spacing:0;color:var(--text)}}
 .briefgrid{{display:grid;grid-template-columns:1fr 1fr;gap:12px}} .briefbox{{border:1px solid var(--line);border-radius:8px;padding:12px}} .briefbox h3{{margin:0 0 6px;font-size:13px}} .briefbox p{{margin:0;color:#cad5df}} .briefbox.span2{{grid-column:1/-1}} .tm{{border-color:#4a3a1c;background:#1a1610}}
@@ -143,6 +163,20 @@ dialog{{width:min(720px,92vw);background:#121922;color:var(--text);border:1px so
 <h1>Amazon Shirt Scout</h1>
 <div class="sub">{html.escape(note)} · updated {html.escape(str(generated))}</div>
 <div class="baseline">{baseline_line}</div>
+<details class="settings"><summary>Settings — image generation</summary>
+  <div class="setrow">
+    <label>API key <input id="apiKey" type="password" placeholder="sk-..." autocomplete="off"></label>
+    <button onclick="saveKey()">Save</button>
+    <span id="keyStatus" class="genstatus"></span>
+  </div>
+  <div class="setrow">
+    <label>Model <select id="genModel"><option value="gpt-image-1.5">gpt-image-1.5</option><option value="gpt-image-2">gpt-image-2</option><option value="gpt-image-1">gpt-image-1</option><option value="gpt-image-1-mini">gpt-image-1-mini (cheap)</option><option value="dall-e-3">dall-e-3</option></select></label>
+    <label>Background <select id="genBg"><option value="transparent">transparent</option><option value="opaque">opaque</option><option value="auto">auto</option></select></label>
+    <label>Quality <select id="genQuality"><option value="medium">medium</option><option value="high">high</option><option value="low">low (cheap)</option></select></label>
+    <label>Size <select id="genSize"><option value="1024x1024">1024x1024</option><option value="1024x1536">1024x1536 (portrait)</option></select></label>
+  </div>
+  <div class="sethint">The key is stored only in this browser and is never committed to the repo. Each variation is a separate billed image request. GPT Image models may require API Organization Verification in your OpenAI console before they will run.</div>
+</details>
 <div class="cards">
   <div class="card"><b>{len(movers)}</b><span>Movers with history</span></div>
   <div class="card"><b>{len(entrants)}</b><span>New arrivals</span></div>
@@ -163,7 +197,7 @@ dialog{{width:min(720px,92vw);background:#121922;color:var(--text);border:1px so
 <div class="notice">Reject is stored in this browser for the POC and hides that ASIN on future refreshes. Check the trademark phrase in each brief before spending design time — infringement, not profanity, is what gets Merch accounts suspended.</div>
 </div>
 
-<dialog id="briefDialog"><div class="modal"><h2 id="briefTitle">Creative brief</h2><div id="briefContent"></div><div class="footer"><label>Variations <input id="variationCount" type="number" min="1" max="5" value="3"></label><button onclick="demoGenerate()">Generate options</button><button onclick="document.getElementById('briefDialog').close()">Close</button></div></div></dialog>
+<dialog id="briefDialog"><div class="modal"><h2 id="briefTitle">Creative brief</h2><div id="briefContent"></div><div class="footer"><span class="hint">Paste into ChatGPT or your image model, then set the type yourself.</span><button onclick="document.getElementById('briefDialog').close()">Close</button></div></div></dialog>
 
 <script>
 const DATA = {embed_json(latest)};
@@ -194,9 +228,108 @@ function esc(s) {{
   return String(s === null || s === undefined ? '' : s)
     .replace(/[&<>'"]/g, c => ({{'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}}[c]));
 }}
+function copyText(btn, text) {{
+  navigator.clipboard.writeText(text).then(() => {{
+    const was = btn.textContent;
+    btn.textContent = 'Copied';
+    setTimeout(() => {{ btn.textContent = was; }}, 1200);
+  }});
+}}
+function genPanel(p) {{
+  const max = (p.design_prompts || []).length || 3;
+  return '<div class="briefbox span2 genbox">' +
+      '<h3>Generate designs</h3>' +
+      '<div class="genrow">' +
+        '<label>Variations <input id="varCount" type="number" min="1" max="' + max + '" value="3"></label>' +
+        '<button id="genBtn" class="primary" onclick="generateDesigns()">Generate</button>' +
+        '<span id="genStatus" class="genstatus"></span>' +
+      '</div>' +
+      '<div id="genResults" class="genresults"></div>' +
+    '</div>';
+}}
+
+// ---- image generation ---------------------------------------------------
+// The key lives only in this browser's localStorage. It is never written to
+// the repo, so it stays out of the public site.
+function getKey() {{ try {{ return localStorage.getItem('shirtScoutApiKey') || ''; }} catch (e) {{ return ''; }} }}
+function saveKey() {{
+  const v = document.getElementById('apiKey').value.trim();
+  localStorage.setItem('shirtScoutApiKey', v);
+  document.getElementById('keyStatus').textContent = v ? 'Key saved in this browser' : 'Key cleared';
+}}
+
+async function generateOne(prompt, key, model, size) {{
+  const res = await fetch('https://api.openai.com/v1/images/generations', {{
+    method: 'POST',
+    headers: {{ 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key }},
+    body: JSON.stringify(Object.assign(
+      {{ model: model, prompt: prompt, n: 1, size: size }},
+      // Transparency and format are GPT-Image-only parameters; sending them to
+      // dall-e-3 makes the request fail.
+      model.indexOf('gpt-image') === 0
+        ? {{ background: document.getElementById('genBg').value,
+             output_format: 'png',
+             quality: document.getElementById('genQuality').value }}
+        : {{}}
+    ))
+  }});
+  if (!res.ok) {{
+    let msg = res.status + ' ' + res.statusText;
+    try {{ const e = await res.json(); if (e.error && e.error.message) msg = e.error.message; }} catch (e) {{}}
+    throw new Error(msg);
+  }}
+  const data = await res.json();
+  const d = (data.data || [])[0] || {{}};
+  return d.b64_json ? 'data:image/png;base64,' + d.b64_json : d.url;
+}}
+
+async function generateDesigns() {{
+  const key = getKey();
+  const status = document.getElementById('genStatus');
+  const results = document.getElementById('genResults');
+  const btn = document.getElementById('genBtn');
+  if (!key) {{
+    status.textContent = 'Add an API key in Settings at the top of the page first.';
+    return;
+  }}
+  const p = byAsin[CURRENT_ASIN];
+  const dirs = (p && p.design_prompts) || [];
+  const n = Math.max(1, Math.min(parseInt(document.getElementById('varCount').value, 10) || 3, dirs.length));
+  const model = document.getElementById('genModel').value;
+  const size = document.getElementById('genSize').value;
+
+  btn.disabled = true;
+  results.innerHTML = '';
+  let done = 0;
+
+  // One call per direction, so every variation is a different concept.
+  const tasks = dirs.slice(0, n).map(async (d) => {{
+    const cell = document.createElement('div');
+    cell.className = 'gencell';
+    cell.innerHTML = '<div class="genlabel">' + esc(d.label) + '</div><div class="genwait">working…</div>';
+    results.appendChild(cell);
+    try {{
+      const src = await generateOne(d.prompt, key, model, size);
+      cell.innerHTML = '<div class="genlabel">' + esc(d.label) + '</div>' +
+        '<img src="' + src + '" alt="">' +
+        '<a class="dl" download="' + esc(d.label.replace(/[^a-z0-9]+/ig, '-').toLowerCase()) + '.png" href="' + src + '">Download</a>';
+    }} catch (err) {{
+      cell.innerHTML = '<div class="genlabel">' + esc(d.label) + '</div>' +
+        '<div class="generr">' + esc(err.message) + '</div>';
+    }}
+    done++;
+    status.textContent = done + ' of ' + n + ' finished';
+  }});
+
+  status.textContent = 'Generating ' + n + '…';
+  await Promise.all(tasks);
+  btn.disabled = false;
+}}
+let CURRENT_ASIN = null;
 function showBrief(asin) {{
   const p = byAsin[asin];
   if (!p) return;
+  CURRENT_ASIN = asin;
   const phrase = p.slogan || p.title || '';
   const why = p.is_new_entrant
     ? 'New to the list at position ' + p.category_position
@@ -211,15 +344,9 @@ function showBrief(asin) {{
         '</b> at <a href="https://tmsearch.uspto.gov/" target="_blank" rel="noopener">tmsearch.uspto.gov</a> ' +
         'for a live registration in class 025 (clothing). A trending phrase is exactly the kind most likely to be claimed. ' +
         '<button onclick="navigator.clipboard.writeText(' + JSON.stringify(phrase).replace(/"/g, '&quot;') + ')">Copy phrase</button></p></div>' +
-      '<div class="briefbox"><h3>Concept 1</h3><p>Typography-led. Bold enough to read at thumbnail size, 3–4 colors, clear hierarchy.</p></div>' +
-      '<div class="briefbox"><h3>Concept 2</h3><p>Original emblem or badge built from niche-specific symbols. Do not copy the source layout.</p></div>' +
-      '<div class="briefbox"><h3>Concept 3</h3><p>Flat vector illustration with a different hook and composition from the source.</p></div>' +
-      '<div class="briefbox"><h3>Print rules</h3><p>Flat vector, 3–5 harmonious colors, clean edges, exact typography, no distressing.</p></div>' +
+      genPanel(p) +
     '</div>';
   document.getElementById('briefDialog').showModal();
-}}
-function demoGenerate() {{
-  alert('No image generation provider is connected yet. The variation control is wired up and waiting for a backend.');
 }}
 document.querySelectorAll('.delta').forEach(el => {{
   const v = parseFloat(el.dataset.value);
