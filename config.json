@@ -1,0 +1,25 @@
+{
+  "marketplace": "US",
+  "categories": {
+    "Men": 9056987011,
+    "Women": 9056923011,
+    "Girls": 9057040011,
+    "Boys": 9057094011
+  },
+  "snapshot_depth": 500,
+  "snapshot_retention_days": 45,
+  "enrich_candidate_pool": 50,
+  "new_entrant_pool": 15,
+  "metadata_refresh_days": 7,
+  "products_cache_max_age_days": 60,
+  "final_count": 25,
+  "final_new_entrant_count": 10,
+  "require_amazon_offer": true,
+  "min_merch_confidence": "Medium",
+  "blocked_terms": [
+    "marijuana", "cannabis", "weed", "420", "cocaine", "heroin", "meth", "mushroom", "psilocybin",
+    "porn", "xxx", "sex", "onlyfans",
+    "trump", "biden", "maga", "democrat", "republican", "election", "president",
+    "jesus", "christ", "christian", "bible", "god", "church", "muslim", "islam", "jewish", "judaism", "hindu"
+  ]
+}

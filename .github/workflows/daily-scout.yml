@@ -1,0 +1,93 @@
+name: Daily Shirt Scout
+
+on:
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: "collect = ranked ASIN snapshot; enrich = metadata + dashboard"
+        required: true
+        default: collect
+        type: choice
+        options:
+          - collect
+          - enrich
+      mode:
+        description: "quick = men's T-shirts only; full = men/women/girls/boys"
+        required: true
+        default: quick
+        type: choice
+        options:
+          - quick
+          - full
+  schedule:
+    # Keepa's low-tier API refills slowly, so collect rankings overnight.
+    # 07:00 UTC = midnight PDT / 11 PM PST.
+    - cron: "0 7 * * *"
+    # Enrich after the token bucket has refilled.
+    # 12:00 UTC = 5 AM PDT / 4 AM PST, so the dashboard is ready before 6 AM Pacific.
+    - cron: "0 12 * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: shirt-scout
+  cancel-in-progress: false
+
+env:
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  collect:
+    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.stage == 'collect') || github.event.schedule == '0 7 * * *' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Collect Best Sellers rank snapshots
+        env:
+          KEEPA_API_KEY: ${{ secrets.KEEPA_API_KEY }}
+          SCOUT_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'full' }}
+        run: python -m src.scout --stage collect --mode "$SCOUT_MODE"
+      - name: Commit rank snapshots
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A data
+          # Commit BEFORE pulling. `git pull --rebase` aborts outright on a
+          # dirty tree, and the scout has just written into data/.
+          git diff --cached --quiet && echo "No changes to commit" && exit 0
+          git commit -m "Collect shirt rank snapshot"
+          git pull --rebase
+          git push
+
+  enrich:
+    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.stage == 'enrich') || github.event.schedule == '0 12 * * *' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Enrich movers and build dashboard
+        env:
+          KEEPA_API_KEY: ${{ secrets.KEEPA_API_KEY }}
+          SCOUT_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'full' }}
+        run: python -m src.scout --stage enrich --mode "$SCOUT_MODE"
+      - name: Commit refreshed dashboard
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A data site/index.html
+          git diff --cached --quiet && echo "No changes to commit" && exit 0
+          git commit -m "Refresh shirt mover dashboard"
+          git pull --rebase
+          git push
