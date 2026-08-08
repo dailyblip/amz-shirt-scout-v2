@@ -45,6 +45,7 @@ def product_row(i: int, p: dict, show_deltas: bool) -> str:
     conf_class = f"conf conf-{conf.lower()}"
     asin = html.escape(p["asin"])
 
+
     deltas = ""
     if show_deltas:
         d24, d7 = p.get("change_24h_pct"), p.get("change_7d_pct")
@@ -59,7 +60,7 @@ def product_row(i: int, p: dict, show_deltas: bool) -> str:
           <td class="thumb">{img}</td>
           <td class="product">
             <a href="{html.escape(p.get('amazon_url', ''))}" target="_blank" rel="noopener">{html.escape(p.get('title', ''))}</a>
-            <div class="meta">{html.escape(p.get('audience') or '')} · {asin} · <span class="{conf_class}">Merch: {html.escape(conf)}</span></div>
+            <div class="meta">{html.escape(p.get('audience') or '')} · {asin} · <span class="{conf_class}">Merch POD confirmed</span></div>
           </td>
           <td>{fmt_num(p.get('category_position'))}</td>
           {deltas}
@@ -108,7 +109,10 @@ def build_dashboard(latest: dict) -> None:
     b7 = meta.get("baseline_7d") or "none yet"
     baseline_line = (f"Snapshot {html.escape(str(meta.get('snapshot_date', '—')))} · "
                      f"compared against {html.escape(str(b24))} (24h) and {html.escape(str(b7))} (7d) · "
-                     f"{fmt_num(meta.get('population'))} ASINs tracked")
+                     f"{fmt_num(meta.get('population'))} ASINs tracked" +
+                     (f" · {meta['ip_filtered']} listing(s) filtered "
+                       f"({', '.join(f'{v} {k}' for k, v in sorted((meta.get('filtered') or {}).items()))})"
+                      if meta.get("ip_filtered") else ""))
 
     page = f"""<!doctype html>
 <html lang="en">
@@ -125,6 +129,7 @@ h2{{font-size:15px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut
 .rank{{font-size:18px;font-weight:700;width:44px}} .thumb{{width:70px}} .thumb img,.ph{{width:52px;height:62px;object-fit:contain;background:white;border-radius:6px}} .ph{{display:grid;place-items:center;color:#111;font-weight:700;font-size:10px}} .product{{min-width:330px;max-width:520px}} .meta{{color:var(--muted);font-size:11px;margin-top:4px}} .score{{font-weight:800;font-size:16px}} .actions{{white-space:nowrap}}
 button{{border:1px solid var(--line);background:#182332;color:var(--text);border-radius:7px;padding:7px 9px;margin-right:5px;cursor:pointer;font:inherit}} button:hover{{border-color:#4a6078}} button:focus-visible{{outline:2px solid var(--accent);outline-offset:2px}} .reject{{color:#ffaaaa}}
 .delta.pos{{color:var(--good);font-weight:700}} .delta.neg{{color:var(--bad);font-weight:700}}
+.ipflag{{color:#ff9a9a;font-weight:700;margin-left:8px;border:1px solid #5c2a2a;background:#2a1414;border-radius:4px;padding:1px 5px}}
 .conf{{font-weight:600}} .conf-high{{color:var(--good)}} .conf-medium{{color:var(--warn)}} .conf-low{{color:var(--muted)}}
 .notice{{margin-top:14px;color:var(--muted);font-size:12px}}
 dialog{{width:min(720px,92vw);background:#121922;color:var(--text);border:1px solid var(--line);border-radius:12px;padding:0}} dialog::backdrop{{background:#000a}} .modal{{padding:20px}} .modal h2{{margin-top:0;font-size:18px;text-transform:none;letter-spacing:0;color:var(--text)}}
