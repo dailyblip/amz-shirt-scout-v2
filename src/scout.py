@@ -332,8 +332,10 @@ class Candidate:
     blended_score: float = 0.0
 
 
-def build_candidates(cfg: dict[str, Any], mode: str) -> tuple[list[Candidate], list[Candidate], dict]:
-    """Return (movers, new_entrants, meta), each already scored and sorted."""
+def build_candidates(
+    cfg: dict[str, Any], mode: str
+) -> tuple[list[Candidate], list[Candidate], list[Candidate], dict]:
+    """Return (movers, new_entrants, baseline_only, meta), scored and sorted."""
     dates = available_snapshot_dates()
     if not dates:
         raise SystemExit("No rank snapshots found. Run the collect stage first.")
@@ -386,6 +388,15 @@ def build_candidates(cfg: dict[str, Any], mode: str) -> tuple[list[Candidate], l
     movers = [c for c in population if c.change_24h_pct is not None or c.change_7d_pct is not None]
     new_entrants = [c for c in population if c.is_new_entrant]
 
+    # First run: no prior snapshot exists, so nothing can qualify as a mover or
+    # a new arrival and both tables would render empty for a full day. Fall back
+    # to current leaders so there is something to look at immediately.
+    baseline_only: list[Candidate] = []
+    if base24_date is None and base7_date is None:
+        baseline_only = sorted(population, key=lambda c: c.category_position)
+        for c in baseline_only:
+            c.blended_score = round(rank_quality(c.category_position, depth), 1)
+
     # Percentiles are computed across the FULL category population, not the
     # enriched subset, so a score of 82 means the same thing every day.
     score_movers(movers, depth)
@@ -403,8 +414,9 @@ def build_candidates(cfg: dict[str, Any], mode: str) -> tuple[list[Candidate], l
         "population": len(population),
         "movers_with_history": len(movers),
         "new_entrants": len(new_entrants),
+        "first_run": bool(baseline_only),
     }
-    return movers, new_entrants, meta
+    return movers, new_entrants, baseline_only, meta
 
 
 def score_movers(movers: list[Candidate], depth: int) -> None:
@@ -476,7 +488,7 @@ def build_row(asin: str, product: dict[str, Any] | None, cached: dict[str, Any],
 
 
 def enrich_dashboard(api: keepa.Keepa, cfg: dict[str, Any], mode: str) -> None:
-    movers, new_entrants, meta = build_candidates(cfg, mode)
+    movers, new_entrants, baseline_only, meta = build_candidates(cfg, mode)
 
     cache = load_json(DATA / "products.json", {})
     rejected = set(load_json(DATA / "rejected.json", []))
@@ -487,7 +499,8 @@ def enrich_dashboard(api: keepa.Keepa, cfg: dict[str, Any], mode: str) -> None:
 
     mover_pool = [c for c in movers[: int(cfg.get("enrich_candidate_pool", 50))]]
     entrant_pool = [c for c in new_entrants[: int(cfg.get("new_entrant_pool", 15))]]
-    lookup = {c.asin: c for c in mover_pool + entrant_pool}
+    baseline_pool = [c for c in baseline_only[: int(cfg.get("new_entrant_pool", 15))]]
+    lookup = {c.asin: c for c in mover_pool + entrant_pool + baseline_pool}
 
     print(f"Enrich stage mode={mode}; Keepa tokens at start={api.tokens_left}")
     print(f"Snapshot {meta['snapshot_date']}; 24h baseline {meta['baseline_24h']}; "
@@ -530,6 +543,7 @@ def enrich_dashboard(api: keepa.Keepa, cfg: dict[str, Any], mode: str) -> None:
 
     top_movers = assemble(mover_pool)[: int(cfg.get("final_count", 25))]
     top_new = assemble(entrant_pool)[: int(cfg.get("final_new_entrant_count", 10))]
+    top_baseline = assemble(baseline_pool)[: int(cfg.get("final_new_entrant_count", 10))]
 
     prune_products_cache(cache, int(cfg.get("products_cache_max_age_days", 60)))
     save_json(DATA / "products.json", cache)
@@ -541,6 +555,7 @@ def enrich_dashboard(api: keepa.Keepa, cfg: dict[str, Any], mode: str) -> None:
         "snapshot_meta": meta,
         "products": top_movers,
         "new_entrants": top_new,
+        "baseline_top": top_baseline,
         "methodology": {
             "discovery": "Daily Keepa Best Sellers snapshots from the exact Amazon novelty T-shirt browse nodes",
             "momentum": "Change in each ASIN's position within its daily category Best Sellers list",
@@ -555,7 +570,8 @@ def enrich_dashboard(api: keepa.Keepa, cfg: dict[str, Any], mode: str) -> None:
     from src.dashboard import build_dashboard
     build_dashboard(latest)
 
-    print(f"Enrich complete. Movers: {len(top_movers)}; new arrivals: {len(top_new)}")
+    print(f"Enrich complete. Movers: {len(top_movers)}; new arrivals: {len(top_new)}; "
+          f"baseline leaders: {len(top_baseline)}")
     print(f"Keepa tokens remaining: {api.tokens_left}")
 
 
