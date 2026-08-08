@@ -92,6 +92,26 @@ def build_dashboard(latest: dict) -> None:
     entrant_rows = [product_row(i, p, False) for i, p in enumerate(entrants, 1)]
     baseline_rows = [product_row(i, p, False) for i, p in enumerate(baseline_top, 1)]
 
+    clusters = latest.get("niche_clusters", []) or []
+    clusters_section = ""
+    if clusters:
+        cards = "".join(
+            '<div class="clcard">'
+            f'<div class="clsize">{c["size"]} shirts</div>'
+            f'<div class="clniche">{html.escape(c["niche"])}</div>'
+            f'<div class="clmeta">avg score {c["avg_score"]} · best 24h '
+            f'{("+" if c["best_change_24h"] > 0 else "")}{c["best_change_24h"]:.0f}%</div>'
+            '</div>'
+            for c in clusters[:8]
+        )
+        clusters_section = (
+            '<h2>Rising niches</h2>'
+            '<div class="h2note">Multiple shirts climbing under one theme in the same run. '
+            'A cluster is a stronger signal than any single mover — it points at demand for '
+            'the topic, not one lucky listing.</div>'
+            f'<div class="clusters">{cards}</div>'
+        )
+
     baseline_section = ""
     if baseline_rows:
         baseline_section = (
@@ -130,6 +150,11 @@ h2{{font-size:15px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut
 button{{border:1px solid var(--line);background:#182332;color:var(--text);border-radius:7px;padding:7px 9px;margin-right:5px;cursor:pointer;font:inherit}} button:hover{{border-color:#4a6078}} button:focus-visible{{outline:2px solid var(--accent);outline-offset:2px}} .reject{{color:#ffaaaa}}
 .delta.pos{{color:var(--good);font-weight:700}} .delta.neg{{color:var(--bad);font-weight:700}}
 .ipflag{{color:#ff9a9a;font-weight:700;margin-left:8px;border:1px solid #5c2a2a;background:#2a1414;border-radius:4px;padding:1px 5px}}
+.clusters{{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;margin-bottom:8px}}
+.clcard{{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}}
+.clsize{{font-size:12px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:.04em}}
+.clniche{{font-size:17px;font-weight:700;margin:4px 0 6px;text-transform:capitalize}}
+.clmeta{{color:var(--muted);font-size:12px}}
 .settings{{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-bottom:18px}}
 .settings summary{{cursor:pointer;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.05em}}
 .setrow{{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px}}
@@ -148,6 +173,13 @@ button.primary{{background:#1d3a5c;border-color:#2f5c8a}}
 .genwait{{color:var(--muted);font-size:12px;padding:22px 0;text-align:center}}
 .generr{{color:var(--bad);font-size:11px;word-break:break-word}}
 .dl{{display:inline-block;margin-top:7px;font-size:12px;color:var(--accent)}}
+.kwbox .chiprow{{margin:6px 0;font-size:12px;color:var(--muted)}}
+.kwbox .chiprow b{{display:inline-block;min-width:58px;color:var(--text)}}
+.chip{{display:inline-block;background:#0d141c;border:1px solid var(--line);border-radius:14px;padding:3px 9px;margin:3px 4px 3px 0;font-size:12px;color:var(--text)}}
+.chip i{{color:var(--muted);font-style:normal;margin-left:5px;font-size:11px}}
+.kwnote{{color:var(--muted);font-size:11px;margin-top:8px}}
+.kwbox .fld{{display:block;font-size:11px;color:var(--muted);margin-top:8px}}
+.kwbox textarea{{width:100%;min-height:44px;background:#0d141c;border:1px solid var(--line);color:#cad5df;border-radius:7px;padding:8px;font:13px/1.4 ui-monospace,Menlo,monospace;margin-top:3px;resize:vertical}}
 .promptbox textarea{{width:100%;min-height:74px;background:#0d141c;border:1px solid var(--line);color:#cad5df;border-radius:7px;padding:9px;font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;resize:vertical;margin-bottom:8px}}
 .conf{{font-weight:600}} .conf-high{{color:var(--good)}} .conf-medium{{color:var(--warn)}} .conf-low{{color:var(--muted)}}
 .hint{{color:var(--muted);font-size:12px;margin-right:auto}}
@@ -185,6 +217,7 @@ dialog{{width:min(720px,92vw);background:#121922;color:var(--text);border:1px so
 </div>
 
 {baseline_section}
+{clusters_section}
 
 <h2>Climbing</h2>
 <div class="h2note">Present in both snapshots, so the movement is real. Positive means the shirt moved up its category list.</div>
@@ -234,6 +267,29 @@ function copyText(btn, text) {{
     btn.textContent = 'Copied';
     setTimeout(() => {{ btn.textContent = was; }}, 1200);
   }});
+}}
+function listingPanel(p) {{
+  const kw = p.keyword_report, L = p.listing;
+  if (!kw && !L) return '';
+  const chips = (arr) => (arr || []).map(x =>
+    '<span class="chip">' + esc(x.term) + '<i>' + x.count + '</i></span>').join('');
+  let html = '<div class="briefbox span2 kwbox"><h3>Niche keywords</h3>';
+  if (kw && kw.phrases && kw.phrases.length)
+    html += '<div class="chiprow"><b>Phrases</b> ' + chips(kw.phrases) + '</div>';
+  if (kw && kw.words && kw.words.length)
+    html += '<div class="chiprow"><b>Words</b> ' + chips(kw.words) + '</div>';
+  if (kw) html += '<div class="kwnote">From ' + kw.sample_size + ' shirt titles in this niche.</div>';
+  if (L) {{
+    html += '<h3 style="margin-top:14px">Draft listing</h3>' +
+      '<label class="fld">Title<textarea readonly id="ltitle">' + esc(L.title) + '</textarea></label>' +
+      '<button onclick="copyText(this, document.getElementById(\'ltitle\').value)">Copy title</button>';
+    (L.bullets || []).forEach((b, i) => {{
+      html += '<label class="fld">Bullet ' + (i+1) + '<textarea readonly id="lb' + i + '">' + esc(b) + '</textarea></label>' +
+        '<button onclick="copyText(this, document.getElementById(\'lb' + i + '\').value)">Copy</button>';
+    }});
+    html += '<div class="kwnote">Edit before use — this is scaffolding, not a finished listing. Verify the phrase has no live trademark in class 025.</div>';
+  }}
+  return html + '</div>';
 }}
 function genPanel(p) {{
   const max = (p.design_prompts || []).length || 3;
@@ -344,6 +400,7 @@ function showBrief(asin) {{
         '</b> at <a href="https://tmsearch.uspto.gov/" target="_blank" rel="noopener">tmsearch.uspto.gov</a> ' +
         'for a live registration in class 025 (clothing). A trending phrase is exactly the kind most likely to be claimed. ' +
         '<button onclick="navigator.clipboard.writeText(' + JSON.stringify(phrase).replace(/"/g, '&quot;') + ')">Copy phrase</button></p></div>' +
+      listingPanel(p) +
       genPanel(p) +
     '</div>';
   document.getElementById('briefDialog').showModal();
