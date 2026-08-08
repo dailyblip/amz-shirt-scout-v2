@@ -152,5 +152,6 @@
     "tesla"
   ],
   "block_ip_matches": true,
-  "independent_sellers_only": true
+  "independent_sellers_only": true,
+  "baseline_skip_top": 60
 }
