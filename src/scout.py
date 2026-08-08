@@ -279,6 +279,49 @@ def slogan_from_title(title: str) -> str:
     return text[:80] or (title or "")[:80]
 
 
+# Image models render text badly, so every prompt forbids it outright — type
+# gets set by hand afterward in a vector tool.
+NEGATIVE = ("no text, no words, no letters, no numbers, no typography, no watermark, "
+            "no logos, no brand marks, no photorealism, no gradients, no drop shadows, "
+            "no busy background detail")
+
+
+def design_prompts(niche: str) -> list[dict[str, str]]:
+    """Six genuinely distinct illustration directions for one niche.
+
+    Each variation the user requests pulls the next direction, so asking for
+    three gives three different concepts rather than three renders of one.
+    """
+    n = (niche or "").strip() or "the theme"
+    base = f"plain white background, print-ready t-shirt graphic. {NEGATIVE}."
+    return [
+        {"label": "Emblem / badge",
+         "prompt": f"Flat vector emblem illustration about {n}. Circular badge composition, "
+                   f"bold simple shapes, thick clean outlines, symmetrical and centered, "
+                   f"limited palette of 3 flat colors, high contrast, {base}"},
+        {"label": "Single subject",
+         "prompt": f"Flat vector illustration of a single centered subject representing {n}. "
+                   f"Sticker style, bold simple shapes, thick clean outlines, limited palette "
+                   f"of 4 flat colors, no shading, {base}"},
+        {"label": "Retro scene",
+         "prompt": f"Retro 1970s flat vector illustration about {n}. Horizontal sunset stripe "
+                   f"arc behind a simple bold subject, muted vintage palette of burnt orange, "
+                   f"mustard, cream and teal, clean edges, centered, {base}"},
+        {"label": "Monoline line art",
+         "prompt": f"Minimal monoline line-art illustration about {n}. Single consistent stroke "
+                   f"weight, one color on white, continuous clean linework, elegant and simple, "
+                   f"centered composition, generous negative space, {base}"},
+        {"label": "Cartoon mascot",
+         "prompt": f"Playful flat cartoon mascot character representing {n}. Friendly expressive "
+                   f"face, chunky rounded shapes, bold outlines, bright limited palette of 5 flat "
+                   f"colors, centered full-body character, sticker style, {base}"},
+        {"label": "Geometric minimal",
+         "prompt": f"Minimal geometric flat illustration about {n}. Built from simple circles, "
+                   f"triangles and rectangles, bauhaus-inspired, 3 flat colors, strong symmetry, "
+                   f"lots of negative space, centered, {base}"},
+    ]
+
+
 def title_is_blocked(title: str, blocked_terms: list[str]) -> bool:
     text = f" {(title or '').lower()} "
     return any(re.search(rf"\b{re.escape(t.lower())}\b", text) for t in blocked_terms)
@@ -432,7 +475,17 @@ def build_candidates(
     # to current leaders so there is something to look at immediately.
     baseline_only: list[Candidate] = []
     if base24_date is None and base7_date is None:
-        baseline_only = sorted(population, key=lambda c: c.category_position)
+        ranked = sorted(population, key=lambda c: c.category_position)
+        # The very top of a category rank list is owned by blank-apparel brands
+        # with years of steady volume. Skip past them, then spread the sample
+        # across the remaining depth instead of taking one contiguous block.
+        skip_top = int(cfg.get("baseline_skip_top", 0))
+        spread = [c for c in ranked if c.category_position > skip_top]
+        want = int(cfg.get("new_entrant_pool", 25))
+        if spread and want and len(spread) > want:
+            step = len(spread) / want
+            spread = [spread[int(i * step)] for i in range(want)]
+        baseline_only = spread
         for c in baseline_only:
             c.blended_score = round(rank_quality(c.category_position, depth), 1)
 
@@ -520,6 +573,7 @@ def build_row(asin: str, product: dict[str, Any] | None, cached: dict[str, Any],
             "asin": asin,
             "title": title,
             "slogan": slogan_from_title(title),
+            "design_prompts": design_prompts(slogan_from_title(title)),
             "brand": product.get("brand"),
             "manufacturer": product.get("manufacturer"),
             "image_url": image_url(product),
