@@ -1,10 +1,13 @@
 {
-  "snapshot_date": "2026-08-07",
-  "last_collect_at": "2026-08-08T03:39:53.290404+00:00",
-  "last_collect_at_pacific": "2026-08-07T20:39:53.290414-07:00",
-  "mode": "quick",
+  "snapshot_date": "2026-08-08",
+  "last_collect_at": "2026-08-08T11:42:05.367048+00:00",
+  "last_collect_at_pacific": "2026-08-08T04:42:05.367059-07:00",
+  "mode": "full",
   "audiences_collected": [
-    "Men"
+    "Men",
+    "Women",
+    "Girls",
+    "Boys"
   ],
   "audiences_failed": []
 }
