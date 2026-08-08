@@ -268,6 +268,15 @@ function copyText(btn, text) {{
     setTimeout(() => {{ btn.textContent = was; }}, 1200);
   }});
 }}
+// Delegated copy handler: any button with data-target copies that field's
+// value. Avoids building onclick strings with nested quotes, which is what
+// silently broke the whole brief modal.
+document.addEventListener('click', (e) => {{
+  const b = e.target.closest('.copybtn');
+  if (!b) return;
+  const el = document.getElementById(b.dataset.target);
+  if (el) copyText(b, el.value);
+}});
 function listingPanel(p) {{
   const kw = p.keyword_report, L = p.listing;
   if (!kw && !L) return '';
@@ -282,10 +291,10 @@ function listingPanel(p) {{
   if (L) {{
     html += '<h3 style="margin-top:14px">Draft listing</h3>' +
       '<label class="fld">Title<textarea readonly id="ltitle">' + esc(L.title) + '</textarea></label>' +
-      '<button onclick="copyText(this, document.getElementById(\'ltitle\').value)">Copy title</button>';
+      '<button class="copybtn" data-target="ltitle">Copy title</button>';
     (L.bullets || []).forEach((b, i) => {{
       html += '<label class="fld">Bullet ' + (i+1) + '<textarea readonly id="lb' + i + '">' + esc(b) + '</textarea></label>' +
-        '<button onclick="copyText(this, document.getElementById(\'lb' + i + '\').value)">Copy</button>';
+        '<button class="copybtn" data-target="lb' + i + '">Copy</button>';
     }});
     html += '<div class="kwnote">Edit before use — this is scaffolding, not a finished listing. Verify the phrase has no live trademark in class 025.</div>';
   }}
