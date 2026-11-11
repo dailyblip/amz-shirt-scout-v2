@@ -1,6 +1,7 @@
 """One-off probe: can Keepa's Product Finder return Merch on Demand shirts directly?
 
-Runs ONE search (new Merch on Demand listings, best sales rank first), then looks
+Runs ONE search (new Merch on Demand listings in Amazon's Novelty T-Shirt
+categories, one row per design, best sales rank first), then looks
 up as many of the results as the remaining token balance allows. Nothing is
 written to the repo; the report goes to the Actions log and the run summary.
 
@@ -18,6 +19,10 @@ KEEPA_EPOCH_OFFSET_MIN = 21564000  # Keepa minutes = unix minutes - this offset
 LISTED_WITHIN_DAYS = int(os.environ.get("PROBE_LISTED_WITHIN_DAYS", "60"))
 MAX_RESULTS = int(os.environ.get("PROBE_MAX_RESULTS", "50"))
 TOKEN_RESERVE = 2  # never spend the balance all the way down
+
+# The first run (no category filter) returned only phone cases. These are the
+# Novelty T-Shirt nodes for Men, Women, Girls and Boys, the same ones in config.json.
+TSHIRT_CATEGORIES = [9056987011, 9056923011, 9057040011, 9057094011]
 
 
 def keepa_minutes(days_ago: int) -> int:
@@ -45,12 +50,15 @@ def main() -> int:
 
     params = keepa.ProductParams(
         isMerchOnDemand=True,
+        categories_include=TSHIRT_CATEGORIES,
+        singleVariation=True,  # one row per design, not one per size/colour
         listedSince_gte=keepa_minutes(LISTED_WITHIN_DAYS),
         current_SALES_gte=1,  # must have a sales rank
         sort=[["current_SALES", "asc"]],  # best rank first
         perPage=MAX_RESULTS,
     )
-    print(f"Search: Merch on Demand, listed in last {LISTED_WITHIN_DAYS} days, best rank first")
+    print(f"Search: Merch on Demand novelty T-shirts, one per design, listed in last "
+          f"{LISTED_WITHIN_DAYS} days, best rank first")
     asins = api.product_finder(params, domain="US", n_products=MAX_RESULTS)
     after_search = tokens(api)
     print(f"Search returned {len(asins)} ASINs; cost about {start - after_search} tokens; "
