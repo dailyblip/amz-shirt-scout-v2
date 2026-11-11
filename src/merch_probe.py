@@ -40,7 +40,7 @@ EXTRA_LICENSED = [
     "project hail mary", "ghostbusters", "coca-cola", "coca cola", "ramones",
     "lynyrd skynyrd", "godzilla", "friday the 13th", "mademark", "michael jackson",
     "notre dame", "jeff dunham", "macy's", "macys", "mlb", "mlbpa", "nfl", "nba",
-    "nhl", "pokemon",
+    "nhl", "pokemon", "lost boys", "cartoon network", "steven universe",
 ]
 # Ordinary words that are also official brands: only count them as the brand name.
 BRAND_ONLY_LICENSED = ["journey", "grease", "universal"]
@@ -125,13 +125,17 @@ def as_rank(value) -> int | None:
     return rank if rank > 0 else None
 
 
-def main() -> int:
-    key = os.environ.get("KEEPA_API_KEY", "").strip()
-    if not key:
-        print("KEEPA_API_KEY is missing.")
-        return 1
+def search_label() -> str:
+    return (f"Merch on Demand novelty T-shirts, one per design, listed {LISTED_MIN_DAYS} to "
+            f"{LISTED_MAX_DAYS} days ago, at least {MIN_SALES_30D} sales signals in 30 days")
 
-    api = keepa.Keepa(key, timeout=30)
+
+def collect(api: keepa.Keepa) -> dict:
+    """Run the one search plus as many lookups as the balance allows.
+
+    Returns the token figures, the ASINs in search order, and one row per
+    looked-up listing. Shared by this probe and the daily tracker.
+    """
     start = tokens(api)
     print(f"Tokens at start: {start}")
 
@@ -146,34 +150,18 @@ def main() -> int:
         sort=[["current_SALES", "asc"]],  # best rank first
         perPage=MAX_RESULTS,
     )
-    what = (f"Merch on Demand novelty T-shirts, one per design, listed {LISTED_MIN_DAYS} to "
-            f"{LISTED_MAX_DAYS} days ago, at least {MIN_SALES_30D} sales signals in 30 days")
-    print(f"Search: {what}")
+    print(f"Search: {search_label()}")
     asins = api.product_finder(params, domain="US", n_products=MAX_RESULTS)
     after_search = tokens(api)
     print(f"Search returned {len(asins)} ASINs; cost about {start - after_search} tokens; "
           f"tokens now: {after_search}")
 
-    lines = [
-        "## Merch on Demand probe: shirts that are moving",
-        "",
-        f"- Search: {what}",
-        f"- Search returned **{len(asins)}** listings (asked for up to {MAX_RESULTS})",
-        f"- Tokens at start: **{start}**; search cost about **{start - after_search}**",
-    ]
-
-    if not asins:
-        lines.append("- **No results.** The filter combination returned nothing.")
-        report(lines)
-        return 0
-
-    cfg = load_config()
-    licensed_terms = term_list(EXTRA_LICENSED, cfg.get("ip_watchlist", []))
-    blocked_terms = term_list(EXTRA_BLOCKED, cfg.get("blocked_terms", []))
-
+    rows: dict[str, dict] = {}
     affordable = max(0, min(len(asins), after_search - TOKEN_RESERVE))
-    rows = {}
     if affordable:
+        cfg = load_config()
+        licensed_terms = term_list(EXTRA_LICENSED, cfg.get("ip_watchlist", []))
+        blocked_terms = term_list(EXTRA_BLOCKED, cfg.get("blocked_terms", []))
         print(f"Looking up {affordable} of {len(asins)} listings (1 token each)")
         products = api.query(asins[:affordable], domain="US", history=False,
                              stats=30, progress_bar=False, wait=False)
@@ -187,6 +175,9 @@ def main() -> int:
             licensed = licensed_match(brand, title, licensed_terms)
             blocked = "" if licensed else first_match(f"{brand} {title}", blocked_terms)
             rows[p.get("asin")] = {
+                # Keepa may return a different size/colour of the same design on
+                # another day; the parent ASIN stays the same.
+                "parent": p.get("parentAsin") or p.get("asin"),
                 "title": title,
                 "brand": brand,
                 "rank": rank,
@@ -198,8 +189,50 @@ def main() -> int:
                 "aside": f"licensed: {licensed}" if licensed else
                          f"blocked topic: {blocked}" if blocked else "",
             }
-    end = tokens(api)
-    lines.append(f"- Looked up **{len(rows)}** listings; tokens left: **{end}** "
+    return {
+        "start": start,
+        "search_cost": start - after_search,
+        "end": tokens(api) if asins else after_search,
+        "asins": list(asins),
+        "rows": rows,
+    }
+
+
+def link(asin: str) -> str:
+    return f"[{asin}](https://www.amazon.com/dp/{asin})"
+
+
+def num(value) -> str:
+    return f"{value:,}" if value is not None else "?"
+
+
+def pct(value) -> str:
+    return f"{value:+d}%" if value is not None else "?"
+
+
+def main() -> int:
+    key = os.environ.get("KEEPA_API_KEY", "").strip()
+    if not key:
+        print("KEEPA_API_KEY is missing.")
+        return 1
+
+    result = collect(keepa.Keepa(key, timeout=30))
+    asins, rows = result["asins"], result["rows"]
+
+    lines = [
+        "## Merch on Demand probe: shirts that are moving",
+        "",
+        f"- Search: {search_label()}",
+        f"- Search returned **{len(asins)}** listings (asked for up to {MAX_RESULTS})",
+        f"- Tokens at start: **{result['start']}**; search cost about **{result['search_cost']}**",
+    ]
+
+    if not asins:
+        lines.append("- **No results.** The filter combination returned nothing.")
+        report(lines)
+        return 0
+
+    lines.append(f"- Looked up **{len(rows)}** listings; tokens left: **{result['end']}** "
                  "(Keepa's balance can lag by a minute)")
 
     kept = [a for a in asins if a in rows and not rows[a]["aside"]]
@@ -213,15 +246,6 @@ def main() -> int:
         lines.append(f"- **{climbing} of {len(kept)}** kept shirts rank better today than their "
                      "30-day average")
 
-    def link(asin: str) -> str:
-        return f"[{asin}](https://www.amazon.com/dp/{asin})"
-
-    def num(value) -> str:
-        return f"{value:,}" if value is not None else "?"
-
-    def climb(r: dict) -> str:
-        return f"{r['climb']:+d}%" if r["climb"] is not None else "?"
-
     if kept:
         lines += ["", "### Kept, fastest climbers first", "",
                   "Climb = how much better today's rank is than the 30-day average. "
@@ -230,7 +254,7 @@ def main() -> int:
                   "|---|---|---|---|---|---|---|---|---|"]
         for i, asin in enumerate(kept, 1):
             r = rows[asin]
-            lines.append(f"| {i} | {climb(r)} | {num(r['rank'])} | {num(r['avg30'])} | "
+            lines.append(f"| {i} | {pct(r['climb'])} | {num(r['rank'])} | {num(r['avg30'])} | "
                          f"{num(r['sales'])} | {r['age']} | {md_cell(r['brand'])[:30]} | "
                          f"{md_cell(r['title'])[:90]} | {link(asin)} |")
     if aside:
@@ -239,7 +263,7 @@ def main() -> int:
                   "|---|---|---|---|---|---|---|"]
         for asin in aside:
             r = rows[asin]
-            lines.append(f"| {md_cell(r['aside'])} | {climb(r)} | {num(r['rank'])} | "
+            lines.append(f"| {md_cell(r['aside'])} | {pct(r['climb'])} | {num(r['rank'])} | "
                          f"{num(r['sales'])} | {md_cell(r['brand'])[:30]} | "
                          f"{md_cell(r['title'])[:70]} | {link(asin)} |")
     if skipped:
