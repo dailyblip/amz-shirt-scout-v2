@@ -1,0 +1,25 @@
+name: Merch Probe
+
+# Manual, one-off test. It never runs on a schedule and never changes the repo.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Search Keepa for new Merch on Demand listings
+        env:
+          KEEPA_API_KEY: ${{ secrets.KEEPA_API_KEY }}
+          PYTHONUNBUFFERED: "1"
+        run: python -m src.merch_probe
