@@ -1,11 +1,12 @@
-"""One-off probe: can Keepa's Product Finder surface Merch on Demand shirts early?
+"""One-off probe: can Keepa's Product Finder pick out Merch shirts that are moving?
 
 Runs ONE search (Merch on Demand listings in Amazon's Novelty T-Shirt
-categories that are at most two weeks old, one row per design, best sales rank
-first), then looks up as many of the results as the remaining token balance
-allows and separates likely licensed merchandise from independent designs.
-Nothing is written to the repo; the report goes to the Actions log and the
-run summary.
+categories, listed 10 to 60 days ago, with several sales in the last 30 days,
+one row per design), then looks up as many results as the token balance
+allows. For each it compares today's sales rank with its 30-day average, sets
+aside licensed merchandise and blocked topics, and lists the rest with the
+fastest climbers first. Nothing is written to the repo; the report goes to the
+Actions log and the run summary.
 
     python -m src.merch_probe
 """
@@ -16,14 +17,17 @@ import os
 import re
 import sys
 import time
+import unicodedata
 from pathlib import Path
 
 import keepa
 
 KEEPA_EPOCH_OFFSET_MIN = 21564000  # Keepa minutes = unix minutes - this offset
-# Two weeks, not two months: the point is to see shirts before they reach the
-# top of the long-running best-seller views.
-LISTED_WITHIN_DAYS = int(os.environ.get("PROBE_LISTED_WITHIN_DAYS", "14"))
+# Old enough to have a trend, young enough that the niche is not crowded yet.
+LISTED_MIN_DAYS = int(os.environ.get("PROBE_LISTED_MIN_DAYS", "10"))
+LISTED_MAX_DAYS = int(os.environ.get("PROBE_LISTED_MAX_DAYS", "60"))
+# Keepa counts each upward jump in sales rank; one jump is roughly one sale.
+MIN_SALES_30D = int(os.environ.get("PROBE_MIN_SALES_30D", "5"))
 MAX_RESULTS = int(os.environ.get("PROBE_MAX_RESULTS", "50"))
 TOKEN_RESERVE = 2  # never spend the balance all the way down
 
@@ -31,13 +35,22 @@ TOKEN_RESERVE = 2  # never spend the balance all the way down
 # Novelty T-Shirt nodes for Men, Women, Girls and Boys, the same ones in config.json.
 TSHIRT_CATEGORIES = [9056987011, 9056923011, 9057040011, 9057094011]
 
-# Official brands seen in the second run that config.json's ip_watchlist misses.
+# Official brands seen in earlier runs that config.json's ip_watchlist misses.
 EXTRA_LICENSED = [
-    "journey", "project hail mary", "ghostbusters", "coca-cola", "coca cola",
-    "grease", "ramones", "lynyrd skynyrd", "godzilla", "friday the 13th",
-    "universal", "mademark", "michael jackson", "notre dame",
+    "project hail mary", "ghostbusters", "coca-cola", "coca cola", "ramones",
+    "lynyrd skynyrd", "godzilla", "friday the 13th", "mademark", "michael jackson",
+    "notre dame", "jeff dunham", "macy's", "macys", "mlb", "mlbpa", "nfl", "nba",
+    "nhl", "pokemon",
 ]
+# Ordinary words that are also official brands: only count them as the brand name.
+BRAND_ONLY_LICENSED = ["journey", "grease", "universal"]
 LICENSED_PHRASES = ["officially licensed", "official license", "official merch"]
+# config.json blocks a few political words; news-driven election shirts use others.
+EXTRA_BLOCKED = [
+    "midterm", "midterms", "vote", "voter", "governor", "senator", "senate",
+    "congress", "political", "politics", "veto", "blue wave", "blue tsunami",
+    "red wave", "democrats", "republicans",
+]
 
 
 def keepa_minutes(days_ago: int) -> int:
@@ -53,31 +66,47 @@ def md_cell(text: str) -> str:
     return str(text).replace("|", "/").replace("\n", " ").strip()
 
 
-def squash(text: str) -> str:
-    return re.sub(r"[^a-z0-9]", "", str(text).lower())
+def words(text: str) -> str:
+    """Lowercase, strip accents, and turn punctuation into spaces: ' pokemon squirtle '."""
+    plain = unicodedata.normalize("NFKD", str(text)).encode("ascii", "ignore").decode()
+    return " " + re.sub(r"[^a-z0-9]+", " ", plain.lower()).strip() + " "
 
 
-def licensed_terms() -> list[str]:
-    terms = list(EXTRA_LICENSED)
+def load_config() -> dict:
     try:
-        cfg = json.loads((Path(__file__).resolve().parent.parent / "config.json").read_text())
-        terms += [str(t) for t in cfg.get("ip_watchlist", [])]
+        return json.loads((Path(__file__).resolve().parent.parent / "config.json").read_text())
     except (OSError, ValueError):
-        pass  # the built-in list still applies
-    return sorted({squash(t) for t in terms if len(squash(t)) >= 4})
+        return {}  # the built-in lists still apply
+
+
+def term_list(extra: list[str], from_config: list) -> list[str]:
+    return sorted({words(t) for t in [*extra, *map(str, from_config)] if words(t).strip()})
+
+
+def first_match(text: str, terms: list[str]) -> str:
+    """Return the first whole-word term found in text, or ''."""
+    padded = words(text)
+    for term in terms:
+        if term in padded:
+            return term.strip()
+    return ""
 
 
 def licensed_match(brand: str, title: str, terms: list[str]) -> str:
-    """Return the term that marks a listing as likely licensed, or ''."""
-    text = f"{brand} {title}".lower()
+    text = f"{brand} {title}"
     for phrase in LICENSED_PHRASES:
-        if phrase in text:
+        if phrase in text.lower():
             return phrase
-    squashed = squash(text)
+    hit = first_match(text, terms)
+    if hit:
+        return hit
+    # Brands are often written without spaces ("STARWARS"), so also compare squashed.
+    squashed_brand = words(brand).replace(" ", "")
     for term in terms:
-        if term in squashed:
-            return term
-    return ""
+        squashed = term.replace(" ", "")
+        if len(squashed) >= 6 and squashed in squashed_brand:
+            return term.strip()
+    return first_match(brand, [words(t) for t in BRAND_ONLY_LICENSED])
 
 
 def age_days(listed_since) -> str:
@@ -86,6 +115,14 @@ def age_days(listed_since) -> str:
         return "?"
     days = (keepa_minutes(0) - listed_since) / (24 * 60)
     return f"{days:.0f}" if days >= 0 else "?"
+
+
+def as_rank(value) -> int | None:
+    try:
+        rank = int(value)
+    except (TypeError, ValueError):
+        return None
+    return rank if rank > 0 else None
 
 
 def main() -> int:
@@ -102,22 +139,25 @@ def main() -> int:
         isMerchOnDemand=True,
         categories_include=TSHIRT_CATEGORIES,
         singleVariation=True,  # one row per design, not one per size/colour
-        listedSince_gte=keepa_minutes(LISTED_WITHIN_DAYS),
+        listedSince_gte=keepa_minutes(LISTED_MAX_DAYS),
+        listedSince_lte=keepa_minutes(LISTED_MIN_DAYS),
+        salesRankDrops30_gte=MIN_SALES_30D,
         current_SALES_gte=1,  # must have a sales rank
         sort=[["current_SALES", "asc"]],  # best rank first
         perPage=MAX_RESULTS,
     )
-    print(f"Search: Merch on Demand novelty T-shirts, one per design, listed in last "
-          f"{LISTED_WITHIN_DAYS} days, best rank first")
+    what = (f"Merch on Demand novelty T-shirts, one per design, listed {LISTED_MIN_DAYS} to "
+            f"{LISTED_MAX_DAYS} days ago, at least {MIN_SALES_30D} sales signals in 30 days")
+    print(f"Search: {what}")
     asins = api.product_finder(params, domain="US", n_products=MAX_RESULTS)
     after_search = tokens(api)
     print(f"Search returned {len(asins)} ASINs; cost about {start - after_search} tokens; "
           f"tokens now: {after_search}")
 
     lines = [
-        "## Merch on Demand probe: shirts listed in the last "
-        f"{LISTED_WITHIN_DAYS} days",
+        "## Merch on Demand probe: shirts that are moving",
         "",
+        f"- Search: {what}",
         f"- Search returned **{len(asins)}** listings (asked for up to {MAX_RESULTS})",
         f"- Tokens at start: **{start}**; search cost about **{start - after_search}**",
     ]
@@ -127,56 +167,81 @@ def main() -> int:
         report(lines)
         return 0
 
+    cfg = load_config()
+    licensed_terms = term_list(EXTRA_LICENSED, cfg.get("ip_watchlist", []))
+    blocked_terms = term_list(EXTRA_BLOCKED, cfg.get("blocked_terms", []))
+
     affordable = max(0, min(len(asins), after_search - TOKEN_RESERVE))
-    terms = licensed_terms()
     rows = {}
     if affordable:
         print(f"Looking up {affordable} of {len(asins)} listings (1 token each)")
         products = api.query(asins[:affordable], domain="US", history=False,
-                             stats=1, progress_bar=False, wait=False)
+                             stats=30, progress_bar=False, wait=False)
         for p in products:
-            current = (p.get("stats_parsed") or {}).get("current", {})
+            parsed = p.get("stats_parsed") or {}
+            raw = p.get("stats") or {}
+            rank = as_rank((parsed.get("current") or {}).get("SALES"))
+            avg30 = as_rank((parsed.get("avg30") or {}).get("SALES"))
+            sales = raw.get("salesRankDrops30", parsed.get("salesRankDrops30"))
             title, brand = p.get("title") or "", p.get("brand") or ""
+            licensed = licensed_match(brand, title, licensed_terms)
+            blocked = "" if licensed else first_match(f"{brand} {title}", blocked_terms)
             rows[p.get("asin")] = {
                 "title": title,
                 "brand": brand,
-                "rank": current.get("SALES"),
+                "rank": rank,
+                "avg30": avg30,
+                # Positive = today's rank is better (lower) than the 30-day average.
+                "climb": round(100 * (avg30 - rank) / avg30) if rank and avg30 else None,
+                "sales": sales if isinstance(sales, int) and sales >= 0 else None,
                 "age": age_days(p.get("listedSince")),
-                "licensed": licensed_match(brand, title, terms),
+                "aside": f"licensed: {licensed}" if licensed else
+                         f"blocked topic: {blocked}" if blocked else "",
             }
     end = tokens(api)
     lines.append(f"- Looked up **{len(rows)}** listings; tokens left: **{end}** "
                  "(Keepa's balance can lag by a minute)")
 
-    independent = [a for a in asins if a in rows and not rows[a]["licensed"]]
-    licensed = [a for a in asins if a in rows and rows[a]["licensed"]]
+    kept = [a for a in asins if a in rows and not rows[a]["aside"]]
+    aside = [a for a in asins if a in rows and rows[a]["aside"]]
     skipped = [a for a in asins if a not in rows]
-    tees = sum(1 for r in rows.values() if "t-shirt" in r["title"].lower())
+    # Fastest climbers first; listings with no 30-day average go last.
+    kept.sort(key=lambda a: (rows[a]["climb"] is None, -(rows[a]["climb"] or 0)))
+    climbing = sum(1 for a in kept if (rows[a]["climb"] or 0) > 0)
     if rows:
-        lines.append(f"- **{tees} of {len(rows)}** looked-up titles contain \"T-Shirt\"")
-        lines.append(f"- **{len(independent)}** look independent; **{len(licensed)}** "
-                     "look licensed (matched a known brand or \"officially licensed\")")
+        lines.append(f"- **{len(kept)}** kept; **{len(aside)}** set aside (licensed or blocked topic)")
+        lines.append(f"- **{climbing} of {len(kept)}** kept shirts rank better today than their "
+                     "30-day average")
 
     def link(asin: str) -> str:
         return f"[{asin}](https://www.amazon.com/dp/{asin})"
 
-    def rank(r: dict) -> str:
-        return f"{int(r['rank']):,}" if r["rank"] else "?"
+    def num(value) -> str:
+        return f"{value:,}" if value is not None else "?"
 
-    if independent:
-        lines += ["", "### Likely independent designs", "",
-                  "| # | Rank | Days old | Brand | Title | Link |", "|---|---|---|---|---|---|"]
-        for i, asin in enumerate(independent, 1):
+    def climb(r: dict) -> str:
+        return f"{r['climb']:+d}%" if r["climb"] is not None else "?"
+
+    if kept:
+        lines += ["", "### Kept, fastest climbers first", "",
+                  "Climb = how much better today's rank is than the 30-day average. "
+                  "Sales (30d) = Keepa's count of rank jumps, roughly one per sale.", "",
+                  "| # | Climb | Rank now | 30-day avg | Sales (30d) | Days old | Brand | Title | Link |",
+                  "|---|---|---|---|---|---|---|---|---|"]
+        for i, asin in enumerate(kept, 1):
             r = rows[asin]
-            lines.append(f"| {i} | {rank(r)} | {r['age']} | {md_cell(r['brand'])[:30]} | "
+            lines.append(f"| {i} | {climb(r)} | {num(r['rank'])} | {num(r['avg30'])} | "
+                         f"{num(r['sales'])} | {r['age']} | {md_cell(r['brand'])[:30]} | "
                          f"{md_cell(r['title'])[:90]} | {link(asin)} |")
-    if licensed:
-        lines += ["", "### Likely licensed (set aside)", "",
-                  "| Rank | Days old | Matched | Brand | Title | Link |", "|---|---|---|---|---|---|"]
-        for asin in licensed:
+    if aside:
+        lines += ["", "### Set aside", "",
+                  "| Why | Climb | Rank now | Sales (30d) | Brand | Title | Link |",
+                  "|---|---|---|---|---|---|---|"]
+        for asin in aside:
             r = rows[asin]
-            lines.append(f"| {rank(r)} | {r['age']} | {md_cell(r['licensed'])} | "
-                         f"{md_cell(r['brand'])[:30]} | {md_cell(r['title'])[:70]} | {link(asin)} |")
+            lines.append(f"| {md_cell(r['aside'])} | {climb(r)} | {num(r['rank'])} | "
+                         f"{num(r['sales'])} | {md_cell(r['brand'])[:30]} | "
+                         f"{md_cell(r['title'])[:70]} | {link(asin)} |")
     if skipped:
         lines += ["", f"Not looked up ({len(skipped)}): " + ", ".join(link(a) for a in skipped)]
     report(lines)
